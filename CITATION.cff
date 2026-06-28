@@ -1,0 +1,73 @@
+cff-version: 1.2.0
+message: >-
+  If you use OpenYield in your research or production systems,
+  please cite it using the metadata below.
+type: software
+title: OpenYield
+version: 1.0.0
+date-released: "2025-01-01"
+license: MIT
+abstract: >-
+  OpenYield is an open-source semiconductor inspection data platform for
+  yield analysis, defect classification, and lot genealogy tracking.
+  It implements KLARF 2.0 binary parsing, three statistical yield models
+  (Poisson, Murphy, Negative Binomial), spatial yield prediction via
+  Jensen's inequality, a pure-NumPy convolutional neural network for
+  defect patch classification, and a bidirectional OpenMES connector —
+  all without proprietary library dependencies. Designed for 300 mm
+  silicon wafer fabs and flat-panel display glass substrate lines.
+authors:
+  - family-names: Woo
+    given-names: Yeonkuk
+    email: ywoo940912@gmail.com
+    # orcid: "https://orcid.org/0000-0000-0000-0000"  # add your ORCID
+url: "https://github.com/your-org/openyield"
+repository-code: "https://github.com/your-org/openyield"
+keywords:
+  - semiconductor manufacturing
+  - yield analysis
+  - defect inspection
+  - KLARF
+  - wafer inspection
+  - glass substrate
+  - flat panel display
+  - convolutional neural network
+  - lot genealogy
+  - SEMI standards
+  - CHIPS Act
+  - open source
+  - manufacturing execution system
+references:
+  - type: article
+    title: >-
+      Cost-size optima of monolithic integrated circuits
+    authors:
+      - family-names: Murphy
+        given-names: B. T.
+    journal: Proceedings of the IEEE
+    volume: 52
+    issue: 12
+    start: 1537
+    end: 1545
+    year: 1964
+  - type: article
+    title: >-
+      High performance convolutional neural networks for document processing
+    authors:
+      - family-names: Chellapilla
+        given-names: K.
+      - family-names: Puri
+        given-names: S.
+      - family-names: Simard
+        given-names: P.
+    conference:
+      name: Tenth International Workshop on Frontiers in Handwriting Recognition
+    year: 2006
+  - type: standard
+    title: "SEMI E10 — Specification for Definition and Measurement of Equipment RAM"
+    institution:
+      name: SEMI International Standards
+  - type: standard
+    title: "SEMI E142 — Specification for Substrate Mapping"
+    institution:
+      name: SEMI International Standards
