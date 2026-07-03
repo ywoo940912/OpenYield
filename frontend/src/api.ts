@@ -5,8 +5,10 @@ import type {
   ParetoResult, SpcResult, TrendResult, DefectListResult,
 } from "./types";
 
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail ?? res.statusText);

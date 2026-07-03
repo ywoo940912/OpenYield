@@ -145,6 +145,26 @@ def _pg_pool(
 
 
 # ---------------------------------------------------------------------------
+# DATABASE_URL helper (Railway / Heroku / Render style connection strings)
+# ---------------------------------------------------------------------------
+
+def _pg_connection_from_url(url: str) -> Any:
+    """Parse postgresql://user:pass@host:port/dbname and return a connection."""
+    try:
+        import psycopg2
+        import psycopg2.extras
+    except ImportError as exc:
+        raise RuntimeError(
+            "psycopg2 is not installed. Run: pip install psycopg2-binary"
+        ) from exc
+
+    conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
+    conn.autocommit = False
+    logger.debug("PostgreSQL connection opened from DATABASE_URL")
+    return conn
+
+
+# ---------------------------------------------------------------------------
 # Public factory
 # ---------------------------------------------------------------------------
 
@@ -165,6 +185,10 @@ def get_connection(
 
     Parameters override environment variables when provided.
     """
+    database_url = os.getenv("DATABASE_URL", "")
+    if database_url and backend is None:
+        backend = Backend.POSTGRES
+
     if backend is None:
         backend = os.getenv("DB_BACKEND", "sqlite")
     backend = Backend(backend)
@@ -174,6 +198,8 @@ def get_connection(
         return _sqlite_connection(db_path)
 
     if backend == Backend.POSTGRES:
+        if database_url and not host:
+            return _pg_connection_from_url(database_url)
         return _pg_connection(
             host     = host     or os.getenv("DB_HOST",     "localhost"),
             port     = int(port or os.getenv("DB_PORT",     "5432")),
