@@ -21,5 +21,5 @@ export default defineConfig({
       "/correlation":{ target: "http://localhost:8000", changeOrigin: true },
     },
   },
-  build: { outDir: "dist" },
+  build: { outDir: "dist", sourcemap: false },
 });
