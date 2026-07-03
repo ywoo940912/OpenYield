@@ -1,5 +1,9 @@
 # OpenYield
 
+[![CI](https://github.com/ywoo940912/OpenYield/actions/workflows/ci.yml/badge.svg)](https://github.com/ywoo940912/OpenYield/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
+
 **Open-source semiconductor inspection data platform for domestic wafer fabs, glass substrate manufacturers, and defense-sector electronics producers.**
 
 Developed by Yeonkuk Woo as vendor-neutral infrastructure for U.S. semiconductor manufacturing under the **CHIPS and Science Act of 2022** (Public Law 117-167). OpenYield provides the defect inspection data pipeline that domestic manufacturers require to operate at production scale without dependency on proprietary enterprise yield management systems (KLA Klarity, Onto Discover Yield).
