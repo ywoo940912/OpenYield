@@ -3,6 +3,7 @@ import type {
   LotLineage, DefectDistribution, CNNStatus, IngestResult,
   ProductSpec, MonteCarloResult, LearningCurveResult,
   ParetoResult, SpcResult, TrendResult, DefectListResult,
+  GenerateResult, LotSummary, CorrelationResult, SignatureResult,
 } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -106,6 +107,17 @@ export const api = {
       if (substrateType) p.set("substrate_type", substrateType);
       return get<TrendResult>(`/trends?${p}`);
     },
+    correlation: (lotId?: string, substrateType?: string) => {
+      const p = new URLSearchParams();
+      if (lotId) p.set("lot_id", lotId);
+      if (substrateType) p.set("substrate_type", substrateType);
+      return get<CorrelationResult>(`/correlation?${p}`);
+    },
+    signatures: (panelId: string) => get<SignatureResult>(`/signatures/${panelId}`),
+    allSignatures: (substrateType?: string) => {
+      const q = substrateType ? `?substrate_type=${substrateType}` : "";
+      return get<SignatureResult[]>(`/signatures${q}`);
+    },
   },
 
   defects: {
@@ -115,6 +127,35 @@ export const api = {
       if (sourceSystem) p.set("source_system", sourceSystem);
       return get<DefectListResult>(`/defects?${p}`);
     },
+  },
+
+  generate: async (params: {
+    substrate_type: string;
+    n_panels: number;
+    product_type?: string;
+    mean_defect_count?: number;
+    run_yield?: boolean;
+    run_clustering?: boolean;
+    seed?: number;
+  }): Promise<GenerateResult> => {
+    const res = await fetch(`${API_BASE}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail ?? res.statusText);
+    }
+    return res.json() as Promise<GenerateResult>;
+  },
+
+  lots: {
+    list: (substrateType?: string) => {
+      const q = substrateType ? `?substrate_type=${substrateType}` : "";
+      return get<LotSummary[]>(`/lots${q}`);
+    },
+    get: (lotId: string) => get<LotSummary>(`/lots/${lotId}`),
   },
 
   simulate: {

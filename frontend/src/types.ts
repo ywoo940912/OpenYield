@@ -310,3 +310,100 @@ export interface DefectListResult {
   limit: number;
   results: Defect[];
 }
+
+// ── Generate ─────────────────────────────────────────────────────────────────
+
+export interface GeneratedPanelSummary {
+  panel_id: string;
+  lot_id: string;
+  rows: number;
+  cols: number;
+  active_dies: number;
+  total_defects: number;
+  system_a_count: number;
+  system_b_count: number;
+  defect_density: number | null;
+  yield_poisson: number | null;
+  yield_negbinom: number | null;
+  clustering_class: string | null;
+}
+
+export interface GenerateResult {
+  substrate_type: string;
+  n_panels: number;
+  total_defects: number;
+  mean_defect_count: number;
+  panels: GeneratedPanelSummary[];
+  elapsed_ms: number;
+}
+
+// ── Lot Summary ───────────────────────────────────────────────────────────────
+
+export interface PanelLotStats {
+  panel_id: string;
+  defect_density: number;
+  yield_negbinom: number | null;
+  cluster_class: string | null;
+}
+
+export interface LotSummary {
+  lot_id: string;
+  substrate_type: string;
+  panel_count: number;
+  panels: PanelLotStats[];
+  avg_defect_density: number;
+  std_defect_density: number;
+  avg_yield_negbinom: number | null;
+  std_yield_negbinom: number | null;
+  excursion_count: number;
+  lot_status: string;
+  status_reason: string;
+}
+
+// ── Correlation ───────────────────────────────────────────────────────────────
+
+export interface RepeatLocation {
+  component_row: number;
+  component_col: number;
+  region_id: string;
+  repeat_count: number;
+  repeat_rate: number;
+  dominant_type: string;
+  type_consistency: number;
+  panel_ids: string[];
+}
+
+export interface CorrelationResult {
+  lot_id: string | null;
+  substrate_type: string | null;
+  total_panels: number;
+  total_locations: number;
+  repeat_threshold: number;
+  systematic_locations: RepeatLocation[];
+  systematic_count: number;
+  systematic_rate: number;
+  calculated_at: string;
+  classification: string;
+  classification_reason: string;
+}
+
+// ── Signatures ────────────────────────────────────────────────────────────────
+
+export interface SignatureMatch {
+  signature_name: string;
+  confidence: number;
+  description: string;
+  root_cause: string;
+  recommended_action: string;
+  evidence: string;
+}
+
+export interface SignatureResult {
+  panel_id: string;
+  substrate_type: string;
+  calculated_at: string;
+  defect_count: number;
+  zone_fractions: Record<string, number>;
+  matches: SignatureMatch[];
+  top_match: SignatureMatch | null;
+}

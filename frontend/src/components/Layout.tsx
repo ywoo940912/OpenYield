@@ -8,6 +8,7 @@ const nav = [
   { to: "/upload",     label: "Upload KLARF" },
   { to: "/products",   label: "Products" },
   { to: "/simulator",  label: "Simulator" },
+  { to: "/generate",   label: "Generate" },
   { to: "/analytics",  label: "Analytics" },
 ];
 

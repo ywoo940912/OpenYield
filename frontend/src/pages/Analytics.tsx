@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type {
   Panel, ParetoResult, SpcResult, TrendResult, Defect,
+  LotSummary, CorrelationResult, SignatureResult,
 } from "../types";
 
 // ── Math helper ───────────────────────────────────────────────────────────────
@@ -74,13 +75,17 @@ function SubstrateSelect({ value, onChange }: {
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
-type Tab = "pareto" | "spc" | "trend" | "scatter";
+type Tab = "pareto" | "spc" | "trend" | "scatter" | "doe" | "yield_breakdown" | "correlation" | "signatures";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "pareto",  label: "Pareto" },
-  { id: "spc",     label: "SPC" },
-  { id: "trend",   label: "Lot Trend" },
-  { id: "scatter", label: "Defect Scatter" },
+  { id: "pareto",          label: "Pareto" },
+  { id: "spc",             label: "SPC" },
+  { id: "trend",           label: "Lot Trend" },
+  { id: "scatter",         label: "Defect Scatter" },
+  { id: "doe",             label: "DOE Compare" },
+  { id: "yield_breakdown", label: "Yield Breakdown" },
+  { id: "correlation",     label: "Correlation" },
+  { id: "signatures",      label: "Signatures" },
 ];
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -92,7 +97,7 @@ export default function Analytics() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-slate-100">Analytics</h1>
 
-      <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.id}
@@ -108,10 +113,14 @@ export default function Analytics() {
         ))}
       </div>
 
-      {tab === "pareto"  && <ParetoTab />}
-      {tab === "spc"     && <SpcTab />}
-      {tab === "trend"   && <TrendTab />}
-      {tab === "scatter" && <ScatterTab />}
+      {tab === "pareto"          && <ParetoTab />}
+      {tab === "spc"             && <SpcTab />}
+      {tab === "trend"           && <TrendTab />}
+      {tab === "scatter"         && <ScatterTab />}
+      {tab === "doe"             && <DoeCompareTab />}
+      {tab === "yield_breakdown" && <YieldBreakdownTab />}
+      {tab === "correlation"     && <CorrelationTab />}
+      {tab === "signatures"      && <SignaturesTab />}
     </div>
   );
 }
@@ -1031,5 +1040,627 @@ function SizeHistogram({ defects }: { defects: Defect[] }) {
         Defect size (mm)
       </text>
     </svg>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATISTICAL HELPERS (DOE Compare)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function normalCDF(z: number): number {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = z < 0 ? -1 : 1;
+  const x = Math.abs(z) / Math.sqrt(2);
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return 0.5 * (1 + sign * y);
+}
+
+function welchTest(a: number[], b: number[]) {
+  if (a.length < 2 || b.length < 2) return null;
+  const mean = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+  const variance = (arr: number[], m: number) =>
+    arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1);
+  const mA = mean(a), mB = mean(b);
+  const vA = variance(a, mA), vB = variance(b, mB);
+  const nA = a.length, nB = b.length;
+  const se = Math.sqrt(vA / nA + vB / nB);
+  if (se === 0) return null;
+  const t = (mA - mB) / se;
+  const df = (vA / nA + vB / nB) ** 2 /
+    ((vA / nA) ** 2 / (nA - 1) + (vB / nB) ** 2 / (nB - 1));
+  const p = 2 * (1 - normalCDF(Math.abs(t) * Math.sqrt(df / (df + t * t - 1 + 1e-9))));
+  const pooledSD = Math.sqrt(((nA - 1) * vA + (nB - 1) * vB) / (nA + nB - 2));
+  const cohenD = pooledSD > 0 ? Math.abs(mA - mB) / pooledSD : 0;
+  return { t, df, p, mA, mB, se, cohenD };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOE COMPARE TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function DoeCompareTab() {
+  const [lots, setLots] = useState<LotSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lotA, setLotA] = useState("");
+  const [lotB, setLotB] = useState("");
+
+  useEffect(() => {
+    api.lots.list()
+      .then(setLots)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const find = (id: string) => lots.find(l => l.lot_id === id);
+  const la = find(lotA), lb = find(lotB);
+
+  const yieldsA = la ? la.panels.map(p => p.yield_negbinom).filter((v): v is number => v != null) : [];
+  const yieldsB = lb ? lb.panels.map(p => p.yield_negbinom).filter((v): v is number => v != null) : [];
+  const result = yieldsA.length >= 2 && yieldsB.length >= 2 ? welchTest(yieldsA, yieldsB) : null;
+
+  const pLabel = (p: number) =>
+    p < 0.001 ? "p < 0.001" : p < 0.01 ? `p = ${p.toFixed(3)}` : `p = ${p.toFixed(3)}`;
+
+  const effectLabel = (d: number) =>
+    d < 0.2 ? "Negligible" : d < 0.5 ? "Small" : d < 0.8 ? "Medium" : "Large";
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-4">
+        {[
+          { label: "Lot A (Control / Baseline)", val: lotA, set: setLotA },
+          { label: "Lot B (Treatment / Comparison)", val: lotB, set: setLotB },
+        ].map(({ label, val, set }) => (
+          <div key={label} className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">{label}</h3>
+            <select
+              value={val}
+              onChange={e => set(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 mb-3"
+            >
+              <option value="">— Select lot —</option>
+              {lots.map(l => (
+                <option key={l.lot_id} value={l.lot_id}>
+                  {l.lot_id} ({l.substrate_type}, {l.panel_count} panels)
+                </option>
+              ))}
+            </select>
+            {find(val) && (() => {
+              const lot = find(val)!;
+              return (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">Panels</span><span className="text-slate-200">{lot.panel_count}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Avg Yield (NB)</span>
+                    <span className={lot.avg_yield_negbinom == null ? "text-slate-500" : lot.avg_yield_negbinom >= 0.5 ? "text-emerald-400" : lot.avg_yield_negbinom >= 0.25 ? "text-amber-400" : "text-red-400"}>
+                      {lot.avg_yield_negbinom != null ? `${(lot.avg_yield_negbinom * 100).toFixed(1)}%` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between"><span className="text-slate-500">Std Dev</span><span className="text-slate-200">{lot.std_yield_negbinom != null ? `${(lot.std_yield_negbinom * 100).toFixed(1)}%` : "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Status</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      lot.lot_status === "excursion" ? "bg-red-500/20 text-red-400" :
+                      lot.lot_status === "watch" ? "bg-amber-500/20 text-amber-400" :
+                      "bg-emerald-500/20 text-emerald-400"
+                    }`}>{lot.lot_status}</span>
+                  </div>
+                  <div className="flex justify-between"><span className="text-slate-500">Excursions</span><span className={lot.excursion_count > 0 ? "text-red-400" : "text-slate-200"}>{lot.excursion_count}</span></div>
+                </div>
+              );
+            })()}
+          </div>
+        ))}
+      </div>
+
+      {result && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-slate-200 mb-5">Welch's t-Test — Yield (NegBinom)</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {[
+              { label: "t statistic", value: result.t.toFixed(3) },
+              { label: "Degrees of freedom", value: result.df.toFixed(1) },
+              { label: "p-value", value: pLabel(result.p) },
+              { label: "Cohen's d", value: `${result.cohenD.toFixed(2)} (${effectLabel(result.cohenD)})` },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-slate-800 rounded-lg p-3">
+                <div className="text-xs text-slate-500 mb-1">{label}</div>
+                <div className="text-sm font-semibold text-slate-100">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className={`rounded-lg px-4 py-3 text-sm font-medium mb-5 ${
+            result.p < 0.05
+              ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+              : "bg-slate-800 border border-slate-700 text-slate-400"
+          }`}>
+            {result.p < 0.05
+              ? `Statistically significant difference detected (${pLabel(result.p)}). Lot A mean ${(result.mA * 100).toFixed(1)}% vs Lot B mean ${(result.mB * 100).toFixed(1)}% — Δ = ${((result.mA - result.mB) * 100).toFixed(1)} pp.`
+              : `No statistically significant difference (${pLabel(result.p)}). Cannot reject H₀ that both lots come from the same process distribution.`
+            }
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Mean yield comparison</div>
+            {[
+              { label: `Lot A — ${lotA}`, val: result.mA },
+              { label: `Lot B — ${lotB}`, val: result.mB },
+            ].map(({ label, val }) => (
+              <div key={label}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-slate-400">{label}</span>
+                  <span className="text-slate-200 font-mono">{(val * 100).toFixed(2)}%</span>
+                </div>
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${val >= 0.5 ? "bg-emerald-500" : val >= 0.25 ? "bg-amber-500" : "bg-red-500"}`}
+                    style={{ width: `${val * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-slate-800 pt-4 text-xs text-slate-600">
+            H₀: μ_A = μ_B | H₁: μ_A ≠ μ_B | α = 0.05 | Welch-Satterthwaite df = {result.df.toFixed(1)}
+          </div>
+        </div>
+      )}
+
+      {!result && lotA && lotB && (
+        <Empty msg="Need at least 2 panels with yield estimates in each lot to run the test." />
+      )}
+      {!lotA || !lotB ? (
+        <Empty msg="Select two lots above to run the statistical comparison." />
+      ) : null}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// YIELD BREAKDOWN TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function YieldBreakdownTab() {
+  const [lots, setLots] = useState<LotSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"" | "glass_panel" | "wafer">("");
+
+  useEffect(() => {
+    api.lots.list(filter || undefined)
+      .then(setLots)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [filter]);
+
+  if (loading) return <Spinner />;
+  if (!lots.length) return <Empty />;
+
+  const allPanels = lots.flatMap(lot =>
+    lot.panels.map(p => ({ ...p, lot_id: lot.lot_id, substrate_type: lot.substrate_type }))
+  );
+  const withYield = allPanels.filter(p => p.yield_negbinom != null);
+
+  const buckets = [
+    { label: "≥ 80%", min: 0.8, max: 1.0,  color: "#22c55e" },
+    { label: "60–80%", min: 0.6, max: 0.8,  color: "#84cc16" },
+    { label: "40–60%", min: 0.4, max: 0.6,  color: "#f59e0b" },
+    { label: "20–40%", min: 0.2, max: 0.4,  color: "#f97316" },
+    { label: "< 20%",  min: 0.0, max: 0.2,  color: "#ef4444" },
+  ];
+
+  const counts = buckets.map(b => ({
+    ...b,
+    count: withYield.filter(p => (p.yield_negbinom ?? 0) >= b.min && (p.yield_negbinom ?? 0) < b.max).length,
+  }));
+  const maxCount = Math.max(...counts.map(c => c.count), 1);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2">
+        {(["", "glass_panel", "wafer"] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => { setFilter(v); setLoading(true); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              filter === v
+                ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                : "border-slate-700 text-slate-400 hover:border-slate-500"
+            }`}
+          >
+            {v === "" ? "All" : v === "glass_panel" ? "Glass Panel" : "Wafer"}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-slate-200 mb-5">Yield Distribution — {withYield.length} panels</h2>
+          <div className="flex items-end gap-2 h-40">
+            {counts.map(b => (
+              <div key={b.label} className="flex-1 flex flex-col items-center gap-1">
+                <span className="text-xs text-slate-400">{b.count}</span>
+                <div className="w-full rounded-t" style={{
+                  height: `${(b.count / maxCount) * 140}px`,
+                  backgroundColor: b.color,
+                  minHeight: b.count > 0 ? 4 : 0,
+                  opacity: 0.85,
+                }} />
+                <span className="text-xs text-slate-500 text-center leading-tight">{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-slate-200 mb-4">Lot Summary</h2>
+          <div className="space-y-3">
+            {lots.map(lot => (
+              <div key={lot.lot_id}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-mono text-slate-400 truncate">{lot.lot_id}</span>
+                  <span className={
+                    lot.avg_yield_negbinom == null ? "text-slate-500" :
+                    lot.avg_yield_negbinom >= 0.5 ? "text-emerald-400" :
+                    lot.avg_yield_negbinom >= 0.25 ? "text-amber-400" : "text-red-400"
+                  }>
+                    {lot.avg_yield_negbinom != null ? `${(lot.avg_yield_negbinom * 100).toFixed(1)}%` : "—"}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      (lot.avg_yield_negbinom ?? 0) >= 0.5 ? "bg-emerald-500" :
+                      (lot.avg_yield_negbinom ?? 0) >= 0.25 ? "bg-amber-500" : "bg-red-500"
+                    }`}
+                    style={{ width: `${(lot.avg_yield_negbinom ?? 0) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-200">Panel Yield Table</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-slate-500 border-b border-slate-800">
+                {["Panel ID", "Lot", "Substrate", "Defect Density", "Yield (NB)", "Cluster Class", "Status"].map(h => (
+                  <th key={h} className="px-4 py-3 text-left font-medium uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allPanels.map(p => (
+                <tr key={p.panel_id} className="border-t border-slate-800/50 hover:bg-slate-800/30">
+                  <td className="px-4 py-2.5 font-mono text-slate-300">{p.panel_id}</td>
+                  <td className="px-4 py-2.5 font-mono text-slate-500 text-xs">{p.lot_id}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      p.substrate_type === "wafer" ? "bg-sky-500/20 text-sky-400" : "bg-violet-500/20 text-violet-400"
+                    }`}>{p.substrate_type === "wafer" ? "Wafer" : "Glass"}</span>
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-slate-400">{p.defect_density.toFixed(5)}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={
+                      p.yield_negbinom == null ? "text-slate-500" :
+                      p.yield_negbinom >= 0.5 ? "text-emerald-400 font-semibold" :
+                      p.yield_negbinom >= 0.25 ? "text-amber-400 font-semibold" : "text-red-400 font-semibold"
+                    }>
+                      {p.yield_negbinom != null ? `${(p.yield_negbinom * 100).toFixed(2)}%` : "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {p.cluster_class ? (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        p.cluster_class === "excursion" ? "bg-red-500/20 text-red-400" :
+                        p.cluster_class === "systematic" ? "bg-amber-500/20 text-amber-400" :
+                        "bg-emerald-500/20 text-emerald-400"
+                      }`}>{p.cluster_class}</span>
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {p.yield_negbinom != null && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${
+                            p.yield_negbinom >= 0.5 ? "bg-emerald-500" :
+                            p.yield_negbinom >= 0.25 ? "bg-amber-500" : "bg-red-500"
+                          }`} style={{ width: `${p.yield_negbinom * 100}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORRELATION TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CorrelationTab() {
+  const [lots, setLots] = useState<LotSummary[]>([]);
+  const [lotId, setLotId] = useState("");
+  const [substrate, setSubstrate] = useState<"" | "glass_panel" | "wafer">("");
+  const [data, setData] = useState<CorrelationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.lots.list().then(setLots).catch(() => {});
+  }, []);
+
+  function run() {
+    setLoading(true);
+    setErr(null);
+    api.analytics.correlation(lotId || undefined, substrate || undefined)
+      .then(setData)
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  }
+
+  const classColor = (c: string) =>
+    c === "systematic" ? "text-red-400 bg-red-500/10 border-red-500/30" :
+    c === "mixed" ? "text-amber-400 bg-amber-500/10 border-amber-500/30" :
+    "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-slate-200 mb-4">Systematic Defect Correlation</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Identifies defect locations that repeat across multiple panels in the same lot — a signature of systematic process issues (tool contamination, fixture contact, mask defects).
+        </p>
+        <div className="flex gap-3 flex-wrap">
+          <select
+            value={lotId}
+            onChange={e => setLotId(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+          >
+            <option value="">All lots</option>
+            {lots.map(l => <option key={l.lot_id} value={l.lot_id}>{l.lot_id}</option>)}
+          </select>
+          <select
+            value={substrate}
+            onChange={e => setSubstrate(e.target.value as typeof substrate)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+          >
+            <option value="">All substrates</option>
+            <option value="glass_panel">Glass Panel</option>
+            <option value="wafer">Wafer</option>
+          </select>
+          <button
+            onClick={run}
+            disabled={loading}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {loading ? "Analyzing…" : "Run Correlation"}
+          </button>
+        </div>
+      </div>
+
+      {err && <ErrBox msg={err} />}
+
+      {data && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Total Panels", value: String(data.total_panels) },
+              { label: "Locations Analyzed", value: String(data.total_locations) },
+              { label: "Systematic Locations", value: String(data.systematic_count) },
+              { label: "Systematic Rate", value: `${(data.systematic_rate * 100).toFixed(1)}%` },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">{label}</div>
+                <div className="text-xl font-semibold text-slate-100">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className={`rounded-xl border px-5 py-4 text-sm font-medium ${classColor(data.classification)}`}>
+            Classification: <strong>{data.classification.toUpperCase()}</strong> — {data.classification_reason}
+          </div>
+
+          {data.systematic_locations.length > 0 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-800">
+                <h2 className="text-sm font-semibold text-slate-200">Repeating Defect Locations</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-500 border-b border-slate-800">
+                      {["Row", "Col", "Zone", "Repeat Count", "Repeat Rate", "Dominant Type", "Type Consistency"].map(h => (
+                        <th key={h} className="px-4 py-3 text-left font-medium uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.systematic_locations.map((loc, i) => (
+                      <tr key={i} className="border-t border-slate-800/50 hover:bg-slate-800/30">
+                        <td className="px-4 py-2.5 font-mono text-slate-300">{loc.component_row}</td>
+                        <td className="px-4 py-2.5 font-mono text-slate-300">{loc.component_col}</td>
+                        <td className="px-4 py-2.5 text-slate-400">{loc.region_id}</td>
+                        <td className="px-4 py-2.5 text-slate-200">{loc.repeat_count}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-red-500 rounded-full" style={{ width: `${loc.repeat_rate * 100}%` }} />
+                            </div>
+                            <span className="text-red-400 font-mono">{(loc.repeat_rate * 100).toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-300">{loc.dominant_type}</td>
+                        <td className="px-4 py-2.5 font-mono text-slate-400">{(loc.type_consistency * 100).toFixed(0)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {data.systematic_locations.length === 0 && (
+            <Empty msg="No systematic repeat locations detected — defect distribution appears random." />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SIGNATURES TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SignaturesTab() {
+  const [panels, setPanels] = useState<Panel[]>([]);
+  const [panelId, setPanelId] = useState("");
+  const [data, setData] = useState<SignatureResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.panels.list().then(r => setPanels(r.results)).catch(() => {});
+  }, []);
+
+  function run() {
+    if (!panelId) return;
+    setLoading(true);
+    setErr(null);
+    api.analytics.signatures(panelId)
+      .then(setData)
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  }
+
+  const ZONE_COLORS: Record<string, string> = {
+    center: "#22c55e", edge: "#f59e0b", corner: "#ef4444",
+    left: "#3b82f6", right: "#3b82f6", top: "#a855f7", bottom: "#a855f7",
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-slate-200 mb-2">Spatial Signature Matching</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Matches the panel's defect spatial distribution against a library of known process failure signatures — center cluster, edge ring, linear scratch, random, and more.
+        </p>
+        <div className="flex gap-3">
+          <select
+            value={panelId}
+            onChange={e => setPanelId(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 flex-1 max-w-xs"
+          >
+            <option value="">— Select panel —</option>
+            {panels.map(p => <option key={p.panel_id} value={p.panel_id}>{p.panel_id}</option>)}
+          </select>
+          <button
+            onClick={run}
+            disabled={loading || !panelId}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {loading ? "Matching…" : "Match Signatures"}
+          </button>
+        </div>
+      </div>
+
+      {err && <ErrBox msg={err} />}
+
+      {data && (
+        <div className="space-y-5">
+          {data.top_match && (
+            <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-5">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <div className="text-xs text-emerald-500 uppercase tracking-wide font-semibold mb-1">Top Match</div>
+                  <div className="text-lg font-semibold text-slate-100">{data.top_match.signature_name.replace(/_/g, " ")}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-2xl font-bold text-emerald-400">{(data.top_match.confidence * 100).toFixed(0)}%</div>
+                  <div className="text-xs text-slate-500">confidence</div>
+                </div>
+              </div>
+              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${data.top_match.confidence * 100}%` }} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Description</div>
+                  <div className="text-slate-300">{data.top_match.description}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Root Cause</div>
+                  <div className="text-slate-300">{data.top_match.root_cause}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Recommended Action</div>
+                  <div className="text-amber-400">{data.top_match.recommended_action}</div>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-slate-600">{data.top_match.evidence}</div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-5">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-slate-200 mb-4">Zone Distribution ({data.defect_count} defects)</h2>
+              <div className="space-y-3">
+                {Object.entries(data.zone_fractions).sort((a, b) => b[1] - a[1]).map(([zone, frac]) => (
+                  <div key={zone}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400 capitalize">{zone}</span>
+                      <span className="text-slate-200 font-mono">{(frac * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${frac * 100}%`, backgroundColor: ZONE_COLORS[zone] ?? "#64748b" }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-slate-200 mb-4">All Pattern Matches</h2>
+              <div className="space-y-3">
+                {data.matches.map((m, i) => (
+                  <div key={i} className={`rounded-lg p-3 ${i === 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-slate-800"}`}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs font-medium text-slate-300">{m.signature_name.replace(/_/g, " ")}</span>
+                      <span className={`text-xs font-semibold ${i === 0 ? "text-emerald-400" : "text-slate-400"}`}>
+                        {(m.confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${i === 0 ? "bg-emerald-500" : "bg-slate-500"}`}
+                        style={{ width: `${m.confidence * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
