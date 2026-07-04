@@ -629,8 +629,8 @@ def ingest_klarf2_file(
                 conn.executemany(
                     f"INSERT INTO defects "
                     f"(panel_id, component_row, component_col, "
-                    f" source_system, defect_type, x_mm, y_mm, "
-                    f" size_mm, confidence) "
+                    f" source_system, defect_type, x, y, "
+                    f" size, confidence_score) "
                     f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
                     [
                         (
@@ -695,8 +695,8 @@ def ingest_klarf2_bytes(
                 conn.executemany(
                     f"INSERT INTO defects "
                     f"(panel_id, component_row, component_col, "
-                    f" source_system, defect_type, x_mm, y_mm, "
-                    f" size_mm, confidence) "
+                    f" source_system, defect_type, x, y, "
+                    f" size, confidence_score) "
                     f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
                     [
                         (

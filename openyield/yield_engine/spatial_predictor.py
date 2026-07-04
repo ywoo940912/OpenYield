@@ -178,7 +178,7 @@ def _fetch_active_dies(conn: Connection, panel_id: str) -> list[dict]:
     """Return all components for the panel, sorted by (row, col)."""
     ph = get_placeholder(conn)
     rows = conn.execute(
-        f"SELECT component_row, component_col, x_mm, y_mm, active "
+        f"SELECT component_row, component_col, center_x AS x_mm, center_y AS y_mm, active "
         f"FROM components WHERE panel_id = {ph} "
         f"ORDER BY component_row, component_col",
         (panel_id,),
