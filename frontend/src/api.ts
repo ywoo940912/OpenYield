@@ -4,6 +4,7 @@ import type {
   ProductSpec, MonteCarloResult, LearningCurveResult,
   ParetoResult, SpcResult, TrendResult, DefectListResult,
   GenerateResult, LotSummary, CorrelationResult, SignatureResult,
+  PanelGallery,
 } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -156,6 +157,12 @@ export const api = {
       return get<LotSummary[]>(`/lots${q}`);
     },
     get: (lotId: string) => get<LotSummary>(`/lots/${lotId}`),
+  },
+
+  images: {
+    gallery: (panelId: string, limit = 50) =>
+      get<PanelGallery>(`/images/render/panel/${panelId}?limit=${limit}`),
+    renderUrl: (defectId: number) => `${API_BASE}/images/render/${defectId}`,
   },
 
   simulate: {

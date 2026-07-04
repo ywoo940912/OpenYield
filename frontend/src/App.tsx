@@ -10,6 +10,7 @@ import Simulator from "./pages/Simulator";
 import Analytics from "./pages/Analytics";
 import Generate from "./pages/Generate";
 import Lots from "./pages/Lots";
+import DefectGallery from "./pages/DefectGallery";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/analytics"  element={<Analytics />} />
           <Route path="/generate"   element={<Generate />} />
           <Route path="/lots"       element={<Lots />} />
+          <Route path="/defects"    element={<DefectGallery />} />
         </Route>
       </Routes>
     </BrowserRouter>

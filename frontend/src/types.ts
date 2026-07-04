@@ -407,3 +407,21 @@ export interface SignatureResult {
   matches: SignatureMatch[];
   top_match: SignatureMatch | null;
 }
+
+// ── Defect Images ─────────────────────────────────────────────────────────────
+
+export interface DefectImageMeta {
+  defect_id: number;
+  defect_type: string;
+  size: number;
+  confidence_score: number;
+  component_row: number;
+  component_col: number;
+  render_url: string;
+}
+
+export interface PanelGallery {
+  panel_id: string;
+  total: number;
+  defects: DefectImageMeta[];
+}
