@@ -18,7 +18,7 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   panels: {
-    list: ()         => get<{ panels: Panel[]; total: number }>("/panels"),
+    list: ()         => get<{ results: Panel[]; total: number }>("/panels"),
     get:  (id: string) => get<Panel>(`/panels/${id}`),
   },
 

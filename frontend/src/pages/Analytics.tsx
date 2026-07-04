@@ -128,7 +128,7 @@ function ParetoTab() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => { api.panels.list().then(r => setPanels(r.panels)); }, []);
+  useEffect(() => { api.panels.list().then(r => setPanels(r.results)); }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -829,7 +829,7 @@ function ScatterTab() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => { api.panels.list().then(r => setPanels(r.panels)); }, []);
+  useEffect(() => { api.panels.list().then(r => setPanels(r.results)); }, []);
 
   useEffect(() => {
     if (!panelId) return;

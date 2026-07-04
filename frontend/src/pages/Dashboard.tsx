@@ -11,7 +11,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.panels.list()
-      .then(r => setPanels(r.panels))
+      .then(r => setPanels(r.results))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);

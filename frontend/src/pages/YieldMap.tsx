@@ -17,7 +17,7 @@ export default function YieldMap() {
   const [error, setError]     = useState<string | null>(null);
 
   useEffect(() => {
-    api.panels.list().then(r => setPanels(r.panels));
+    api.panels.list().then(r => setPanels(r.results));
   }, []);
 
   useEffect(() => {
