@@ -9,6 +9,7 @@ import Products from "./pages/Products";
 import Simulator from "./pages/Simulator";
 import Analytics from "./pages/Analytics";
 import Generate from "./pages/Generate";
+import Lots from "./pages/Lots";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/simulator"  element={<Simulator />} />
           <Route path="/analytics"  element={<Analytics />} />
           <Route path="/generate"   element={<Generate />} />
+          <Route path="/lots"       element={<Lots />} />
         </Route>
       </Routes>
     </BrowserRouter>

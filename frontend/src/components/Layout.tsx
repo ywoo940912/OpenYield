@@ -2,6 +2,7 @@ import { Outlet, NavLink } from "react-router-dom";
 
 const nav = [
   { to: "/dashboard",  label: "Dashboard" },
+  { to: "/lots",       label: "Lots" },
   { to: "/yield-map",  label: "Yield Map" },
   { to: "/genealogy",  label: "Genealogy" },
   { to: "/classifier", label: "Classifier" },
