@@ -9,6 +9,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail ?? res.statusText);
@@ -42,7 +43,7 @@ export const api = {
     klarf2: async (file: File): Promise<IngestResult> => {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/ingest/klarf2", { method: "POST", body: form });
+      const res = await fetch(`${API_BASE}/ingest/klarf2`, { method: "POST", body: form });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail ?? res.statusText);
@@ -55,7 +56,7 @@ export const api = {
     list:   ()                  => get<ProductSpec[]>("/products/specs"),
     get:    (id: string)        => get<ProductSpec>(`/products/specs/${id}`),
     create: async (body: Omit<ProductSpec, "die_area_mm2" | "created_at" | "updated_at">): Promise<ProductSpec> => {
-      const res = await fetch("/products/specs", {
+      const res = await fetch(`${API_BASE}/products/specs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -67,7 +68,7 @@ export const api = {
       return res.json() as Promise<ProductSpec>;
     },
     update: async (id: string, patch: Partial<ProductSpec>): Promise<ProductSpec> => {
-      const res = await fetch(`/products/specs/${id}`, {
+      const res = await fetch(`${API_BASE}/products/specs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
@@ -79,7 +80,7 @@ export const api = {
       return res.json() as Promise<ProductSpec>;
     },
     delete: async (id: string): Promise<void> => {
-      const res = await fetch(`/products/specs/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/products/specs/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail ?? res.statusText);
@@ -121,7 +122,7 @@ export const api = {
       d0: number; die_area_mm2: number; wafer_diameter_mm?: number;
       n_runs?: number; critical_area_fraction?: number; alpha?: number;
     }): Promise<MonteCarloResult> => {
-      const res = await fetch("/simulate/monte-carlo", {
+      const res = await fetch(`${API_BASE}/simulate/monte-carlo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
@@ -133,7 +134,7 @@ export const api = {
       return res.json() as Promise<MonteCarloResult>;
     },
     monteCarloFromSpec: async (specId: string, nRuns = 2000): Promise<MonteCarloResult> => {
-      const res = await fetch(`/simulate/monte-carlo/spec/${specId}?n_runs=${nRuns}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/simulate/monte-carlo/spec/${specId}?n_runs=${nRuns}`, { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail ?? res.statusText);
@@ -145,7 +146,7 @@ export const api = {
       improvement_rate?: number; y_max?: number; n_months?: number;
       die_area_mm2?: number; initial_d0?: number;
     }): Promise<LearningCurveResult> => {
-      const res = await fetch("/simulate/learning-curve", {
+      const res = await fetch(`${API_BASE}/simulate/learning-curve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
