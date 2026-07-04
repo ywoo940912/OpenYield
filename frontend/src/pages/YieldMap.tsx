@@ -137,7 +137,7 @@ export default function YieldMap() {
               />
 
               <div className="mt-4 space-y-2 text-xs text-slate-400">
-                <Row label="Mean D₀"   value={`${estimate.D0.toFixed(4)} /mm²`} />
+                <Row label="Mean D₀"   value={`${estimate.defect_density.toFixed(4)} /mm²`} />
                 <Row label="Std D₀"    value={`${spatial.std_d0.toFixed(4)} /mm²`} />
                 <Row label="Active dies" value={`${spatial.n_active_dies}`} />
                 <Row label="Die area"  value={`${spatial.die_area_mm2.toFixed(1)} mm²`} />

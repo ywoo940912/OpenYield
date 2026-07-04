@@ -14,8 +14,8 @@ export interface YieldEstimate {
   substrate_type: string;
   die_area_mm2: number;
   defect_count: number;
-  D0: number;
-  alpha: number;
+  defect_density: number;
+  clustering_alpha: number;
   yield_poisson: number;
   yield_murphy: number;
   yield_negbinom: number;
