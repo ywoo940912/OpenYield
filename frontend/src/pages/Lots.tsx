@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import type { LotSummary } from "../types";
+import DonutChart from "../components/DonutChart";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -194,20 +195,66 @@ function SummaryBar({ lots }: { lots: LotSummary[] }) {
   const yields        = lots.map(l => l.avg_yield_negbinom).filter((v): v is number => v != null);
   const avgYield      = yields.length ? yields.reduce((s, v) => s + v, 0) / yields.length : null;
 
+  const allPanelYields = lots.flatMap(l => l.panels.map(p => p.yield_negbinom)).filter((v): v is number => v != null);
+  const yHigh = allPanelYields.filter(v => v >= 0.5).length;
+  const yMid  = allPanelYields.filter(v => v >= 0.25 && v < 0.5).length;
+  const yLow  = allPanelYields.filter(v => v < 0.25).length;
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-      {[
-        { label: "Total Lots",    value: String(lots.length),       color: "text-slate-100" },
-        { label: "Total Panels",  value: String(totalPanels),       color: "text-slate-100" },
-        { label: "Clean",         value: String(cleanLots),         color: "text-emerald-400" },
-        { label: "Watch",         value: String(watchLots),         color: "text-amber-400" },
-        { label: "Excursion",     value: String(excursionLots),     color: "text-red-400" },
-      ].map(({ label, value, color }) => (
-        <div key={label} className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
-          <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
-          <div className={`text-xl font-bold mt-0.5 ${color}`}>{value}</div>
+    <div className="flex gap-4 flex-wrap">
+      {/* KPI tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1 min-w-0">
+        {[
+          { label: "Total Lots",    value: String(lots.length),    color: "text-slate-100" },
+          { label: "Total Panels",  value: String(totalPanels),    color: "text-slate-100" },
+          { label: "Fleet Yield",   value: avgYield != null ? `${(avgYield * 100).toFixed(1)}%` : "—",
+            color: avgYield == null ? "text-slate-500" : avgYield >= 0.5 ? "text-emerald-400" : avgYield >= 0.25 ? "text-amber-400" : "text-red-400" },
+          { label: "Clean",         value: String(cleanLots),      color: "text-emerald-400" },
+          { label: "Watch",         value: String(watchLots),      color: "text-amber-400" },
+          { label: "Excursion",     value: String(excursionLots),  color: "text-red-400" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+            <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
+            <div className={`text-xl font-bold mt-0.5 ${color}`}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Lot status donut */}
+      {lots.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 shrink-0">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Status</div>
+          <DonutChart
+            size={100}
+            thickness={18}
+            label={String(lots.length)}
+            sublabel="lots"
+            slices={[
+              { label: "Clean",     value: cleanLots,     color: "#22c55e" },
+              { label: "Watch",     value: watchLots,     color: "#f59e0b" },
+              { label: "Excursion", value: excursionLots, color: "#ef4444" },
+            ].filter(s => s.value > 0)}
+          />
         </div>
-      ))}
+      )}
+
+      {/* Yield donut */}
+      {allPanelYields.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 shrink-0">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Panel Yield</div>
+          <DonutChart
+            size={100}
+            thickness={18}
+            label={String(allPanelYields.length)}
+            sublabel="panels"
+            slices={[
+              { label: "≥ 50%",  value: yHigh, color: "#22c55e" },
+              { label: "25–50%", value: yMid,  color: "#f59e0b" },
+              { label: "< 25%",  value: yLow,  color: "#ef4444" },
+            ].filter(s => s.value > 0)}
+          />
+        </div>
+      )}
     </div>
   );
 }
