@@ -139,7 +139,7 @@ export default function DefectGallery() {
             <option value="">— Select a panel —</option>
             {panels.map(p => (
               <option key={p.panel_id} value={p.panel_id}>
-                {p.panel_id} ({p.substrate_type}, {p.defect_count} defects)
+                {p.panel_id} ({p.substrate_type})
               </option>
             ))}
           </select>

@@ -24,7 +24,7 @@ export default function Dashboard() {
   if (loading) return <Spinner />;
   if (error)   return <ErrorBox msg={error} />;
 
-  const totalDefects = panels.reduce((s, p) => s + p.defect_count, 0);
+  const totalPanels = lots.reduce((s, l) => s + l.panel_count, 0);
   const waferCount   = panels.filter(p => p.substrate_type === "wafer").length;
   const glassCount   = panels.filter(p => p.substrate_type === "glass_panel").length;
 
@@ -49,9 +49,9 @@ export default function Dashboard() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard label="Total Panels"  value={panels.length}               accent="blue"  />
-        <StatCard label="Total Lots"    value={lots.length}                  accent="green" />
-        <StatCard label="Total Defects" value={totalDefects.toLocaleString()} accent="red"  />
+        <StatCard label="Total Panels"  value={totalPanels}  accent="blue"  />
+        <StatCard label="Total Lots"    value={lots.length}  accent="green" />
+        <StatCard label="Excursion Lots" value={excursionLots} accent="red" />
         <StatCard
           label="Fleet Avg Yield"
           value={fleetYield != null ? `${(fleetYield * 100).toFixed(1)}%` : "—"}
@@ -205,7 +205,7 @@ export default function Dashboard() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-slate-500 text-xs uppercase border-b border-slate-800">
-                {["Panel ID", "Substrate", "Lot", "Grid", "Defects", ""].map(h => (
+                {["Panel ID", "Substrate", "Lot", "Grid", ""].map(h => (
                   <th key={h} className="text-left px-5 py-2.5 font-medium">{h}</th>
                 ))}
               </tr>
@@ -225,11 +225,6 @@ export default function Dashboard() {
                   </td>
                   <td className="px-5 py-3 text-slate-400 text-xs font-mono">{p.lot_id || "—"}</td>
                   <td className="px-5 py-3 text-slate-400 text-xs">{p.rows}×{p.cols}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-medium ${p.defect_count > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                      {p.defect_count.toLocaleString()}
-                    </span>
-                  </td>
                   <td className="px-5 py-3">
                     <Link
                       to={`/yield-map?panel=${p.panel_id}`}

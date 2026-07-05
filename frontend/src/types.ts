@@ -1,12 +1,11 @@
 export interface Panel {
   panel_id: string;
   substrate_type: string;
-  lot_id: string;
+  lot_id: string | null;
   rows: number;
   cols: number;
-  component_pitch_mm: number;
   product_type: string;
-  defect_count: number;
+  created_at: string;
 }
 
 export interface YieldEstimate {
