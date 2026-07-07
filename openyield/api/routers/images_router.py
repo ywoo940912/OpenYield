@@ -142,31 +142,13 @@ def _pixels_to_png_bytes(pixels: list[int]) -> bytes:
     return sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(bytes(raw), 6)) + chunk(b"IEND", b"")
 
 
-@router.get("/render/{defect_id}")
-def render_defect_image(
-    defect_id: int,
-    conn: Connection = Depends(get_db),
-):
-    """
-    Stream a synthetic defect image PNG on-the-fly without touching disk.
-    Works on ephemeral filesystems (Railway, containers).
-    """
-    ph = get_placeholder(conn)
-    row = conn.execute(
-        f"SELECT panel_id, defect_type, size FROM defects WHERE defect_id={ph}",
-        (defect_id,)
-    ).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Defect {defect_id} not found")
+def _placeholder_png() -> bytes:
+    """64×64 solid mid-gray PNG — returned instead of 500 when render fails."""
+    return _pixels_to_png_bytes([128] * (IMAGE_W * IMAGE_H))
 
-    pixels = _render_defect(row["defect_type"], float(row["size"]), row["panel_id"], defect_id)
-    png_bytes = _pixels_to_png_bytes(pixels)
-    return StreamingResponse(
-        io.BytesIO(png_bytes),
-        media_type="image/png",
-        headers={"Cache-Control": "public, max-age=86400"},
-    )
 
+# ── /render/panel/{panel_id} must be declared BEFORE /render/{defect_id}
+# so FastAPI doesn't try to parse the literal "panel" as an int.
 
 @router.get("/render/panel/{panel_id}")
 def render_panel_gallery(
@@ -184,7 +166,7 @@ def render_panel_gallery(
 
     rows = conn.execute(
         f"""SELECT defect_id, defect_type, size, confidence_score,
-                   component_row, component_col, x, y
+                   component_row, component_col
             FROM defects
             WHERE panel_id={ph} AND source_system='system_a'
             ORDER BY defect_id
@@ -197,14 +179,46 @@ def render_panel_gallery(
         "total": len(rows),
         "defects": [
             {
-                "defect_id":       r["defect_id"],
-                "defect_type":     r["defect_type"],
-                "size":            r["size"],
+                "defect_id":        r["defect_id"],
+                "defect_type":      r["defect_type"],
+                "size":             r["size"],
                 "confidence_score": r["confidence_score"],
-                "component_row":   r["component_row"],
-                "component_col":   r["component_col"],
-                "render_url":      f"/images/render/{r['defect_id']}",
+                "component_row":    r["component_row"],
+                "component_col":    r["component_col"],
+                "render_url":       f"/images/render/{r['defect_id']}",
             }
             for r in rows
         ],
     }
+
+
+@router.get("/render/{defect_id}")
+def render_defect_image(
+    defect_id: int,
+    conn: Connection = Depends(get_db),
+):
+    """
+    Stream a synthetic defect image PNG on-the-fly without touching disk.
+    Works on ephemeral filesystems (Railway, containers).
+    Returns a solid gray placeholder instead of 500 on any render error.
+    """
+    try:
+        ph = get_placeholder(conn)
+        row = conn.execute(
+            f"SELECT panel_id, defect_type, size FROM defects WHERE defect_id={ph}",
+            (defect_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"Defect {defect_id} not found")
+        pixels = _render_defect(row["defect_type"], float(row["size"]), row["panel_id"], defect_id)
+        png_bytes = _pixels_to_png_bytes(pixels)
+    except HTTPException:
+        raise
+    except Exception:
+        png_bytes = _placeholder_png()
+
+    return StreamingResponse(
+        io.BytesIO(png_bytes),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

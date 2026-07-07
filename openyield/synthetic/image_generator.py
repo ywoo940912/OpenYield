@@ -344,8 +344,101 @@ def _render_defect(defect_type: str, size_mm: float,
         _draw_bright_point(pixels, cx, cy,
                            intensity=120 + rng.randint(0, 50))
 
+    elif defect_type == "line_defect":
+        # Short oriented segment — lithography or etch artifact
+        angle = (rng.next() * 0.5 + 0.1) * math.pi  # mostly horizontal
+        _draw_linear_streak(pixels, cx, cy,
+                            length=pixel_size * 1.4,
+                            angle=angle,
+                            contrast=75 + rng.randint(0, 40))
+        # Second parallel line offset slightly
+        _draw_linear_streak(pixels,
+                            cx + math.sin(angle) * pixel_size * 0.3,
+                            cy - math.cos(angle) * pixel_size * 0.3,
+                            length=pixel_size * 1.0,
+                            angle=angle,
+                            contrast=50 + rng.randint(0, 30))
+
+    elif defect_type == "open_circuit":
+        # Two collinear streaks with a gap between them — broken trace
+        angle = rng.next() * math.pi
+        gap = pixel_size * 0.5
+        half = pixel_size * 0.9
+        ox, oy = math.cos(angle) * (half + gap * 0.5), math.sin(angle) * (half + gap * 0.5)
+        _draw_linear_streak(pixels, cx + ox, cy + oy,
+                            length=pixel_size * 1.0,
+                            angle=angle,
+                            contrast=100 + rng.randint(0, 30))
+        _draw_linear_streak(pixels, cx - ox, cy - oy,
+                            length=pixel_size * 1.0,
+                            angle=angle,
+                            contrast=100 + rng.randint(0, 30))
+
+    elif defect_type == "short_circuit":
+        # Diagonal bridge connecting two areas — resist residue
+        angle = math.pi * 0.25 + rng.normal(0.0, 0.15)
+        _draw_linear_streak(pixels, cx, cy,
+                            length=pixel_size * 2.5,
+                            angle=angle,
+                            contrast=120 + rng.randint(0, 40))
+        _draw_gaussian_blob(pixels,
+                            cx + math.cos(angle) * pixel_size,
+                            cy + math.sin(angle) * pixel_size,
+                            radius=pixel_size * 0.4,
+                            contrast=80)
+
+    elif defect_type == "metal_spike":
+        # Elongated bright protrusion — electromigration hillock
+        angle = rng.next() * 2.0 * math.pi
+        tip_x = cx + math.cos(angle) * pixel_size * 0.8
+        tip_y = cy + math.sin(angle) * pixel_size * 0.8
+        _draw_gaussian_blob(pixels, cx, cy,
+                            radius=pixel_size * 0.5,
+                            contrast=90)
+        _draw_linear_streak(pixels, cx, cy,
+                            length=pixel_size * 1.6,
+                            angle=angle,
+                            contrast=130 + rng.randint(0, 40))
+        _draw_bright_point(pixels, tip_x, tip_y,
+                           intensity=60 + rng.randint(0, 30))
+
+    elif defect_type == "bridging":
+        # Two offset blobs connected by a thin line — resist bridging
+        angle = rng.next() * 2.0 * math.pi
+        dist  = pixel_size * 0.9
+        ax, ay = cx + math.cos(angle) * dist, cy + math.sin(angle) * dist
+        bx, by = cx - math.cos(angle) * dist, cy - math.sin(angle) * dist
+        _draw_gaussian_blob(pixels, ax, ay,
+                            radius=pixel_size * 0.45,
+                            contrast=95 + rng.randint(0, 35))
+        _draw_gaussian_blob(pixels, bx, by,
+                            radius=pixel_size * 0.45,
+                            contrast=95 + rng.randint(0, 35))
+        _draw_linear_streak(pixels, cx, cy,
+                            length=dist * 2.0,
+                            angle=angle,
+                            contrast=55 + rng.randint(0, 25))
+
+    elif defect_type == "crystal_defect":
+        # Hexagonal faceted shape — epitaxial grain boundary
+        r = pixel_size * 0.6
+        for i in range(6):
+            a0 = (i / 6.0) * 2.0 * math.pi
+            a1 = ((i + 1) / 6.0) * 2.0 * math.pi
+            x0 = cx + r * math.cos(a0)
+            y0 = cy + r * math.sin(a0)
+            x1 = cx + r * math.cos(a1)
+            y1 = cy + r * math.sin(a1)
+            _draw_linear_streak(pixels,
+                                (x0 + x1) / 2.0, (y0 + y1) / 2.0,
+                                length=r,
+                                angle=a0 + math.pi / 12.0,
+                                contrast=80 + rng.randint(0, 40))
+        _draw_gaussian_blob(pixels, cx, cy,
+                            radius=pixel_size * 0.25,
+                            contrast=50)
+
     else:
-        # Unknown type — render as a faint particle so the patch is never empty
         _draw_gaussian_blob(pixels, cx, cy,
                             radius=pixel_size * 0.4,
                             contrast=60)
