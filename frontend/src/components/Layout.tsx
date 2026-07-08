@@ -5,37 +5,54 @@ import {
   Cpu,
 } from "lucide-react";
 
-const nav = [
-  { to: "/dashboard",  label: "Dashboard",     icon: LayoutDashboard },
-  { to: "/lots",       label: "Lots",           icon: Layers },
-  { to: "/defects",    label: "Defect Gallery", icon: ScanSearch },
-  { to: "/yield-map",  label: "Yield Map",      icon: Map },
-  { to: "/genealogy",  label: "Genealogy",      icon: GitFork },
-  { to: "/classifier", label: "Classifier",     icon: BrainCircuit },
-  { to: "/upload",     label: "Upload KLARF",   icon: Upload },
-  { to: "/products",   label: "Products",       icon: Package },
-  { to: "/simulator",  label: "Simulator",      icon: Zap },
-  { to: "/generate",   label: "Generate",       icon: Sparkles },
-  { to: "/analytics",  label: "Analytics",      icon: BarChart3 },
+const navGroups = [
+  {
+    label: "Inspect",
+    items: [
+      { to: "/dashboard",  label: "Dashboard",     icon: LayoutDashboard },
+      { to: "/lots",       label: "Lots",           icon: Layers },
+      { to: "/defects",    label: "Defect Gallery", icon: ScanSearch },
+      { to: "/yield-map",  label: "Yield Map",      icon: Map },
+    ],
+  },
+  {
+    label: "Analyze",
+    items: [
+      { to: "/analytics",  label: "Analytics",      icon: BarChart3 },
+      { to: "/classifier", label: "Classifier",     icon: BrainCircuit },
+      { to: "/genealogy",  label: "Genealogy",      icon: GitFork },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { to: "/generate",   label: "Generate",       icon: Sparkles },
+      { to: "/upload",     label: "Upload KLARF",   icon: Upload },
+      { to: "/simulator",  label: "Simulator",      icon: Zap },
+      { to: "/products",   label: "Products",       icon: Package },
+    ],
+  },
 ];
 
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard":  "Dashboard",
-  "/lots":       "Lots",
-  "/defects":    "Defect Gallery",
-  "/yield-map":  "Yield Map",
-  "/genealogy":  "Genealogy",
-  "/classifier": "Classifier",
-  "/upload":     "Upload KLARF",
-  "/products":   "Products",
-  "/simulator":  "Simulator",
-  "/generate":   "Generate",
-  "/analytics":  "Analytics",
+const PAGE_TITLES: Record<string, { label: string; group: string }> = {
+  "/dashboard":  { label: "Dashboard",     group: "Inspect"  },
+  "/lots":       { label: "Lots",          group: "Inspect"  },
+  "/defects":    { label: "Defect Gallery",group: "Inspect"  },
+  "/yield-map":  { label: "Yield Map",     group: "Inspect"  },
+  "/analytics":  { label: "Analytics",     group: "Analyze"  },
+  "/classifier": { label: "Classifier",    group: "Analyze"  },
+  "/genealogy":  { label: "Genealogy",     group: "Analyze"  },
+  "/generate":   { label: "Generate",      group: "Tools"    },
+  "/upload":     { label: "Upload KLARF",  group: "Tools"    },
+  "/simulator":  { label: "Simulator",     group: "Tools"    },
+  "/products":   { label: "Products",      group: "Tools"    },
 };
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const pageTitle = PAGE_TITLES[pathname] ?? "OpenYield";
+  const page = PAGE_TITLES[pathname];
+  const pageGroup = page?.group ?? "";
+  const pageTitle = page?.label ?? "OpenYield";
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-950">
@@ -56,26 +73,35 @@ export default function Layout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-          {nav.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-emerald-500/12 text-emerald-400 border border-emerald-500/20"
-                    : "text-slate-500 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent"
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon size={14} className={isActive ? "text-emerald-400" : "text-slate-600"} />
-                  {label}
-                </>
-              )}
-            </NavLink>
+        <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-4">
+          {navGroups.map(group => (
+            <div key={group.label}>
+              <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? "bg-emerald-500/12 text-emerald-400 border border-emerald-500/20"
+                          : "text-slate-500 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent"
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon size={14} className={isActive ? "text-emerald-400" : "text-slate-600"} />
+                        {label}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -93,8 +119,13 @@ export default function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar */}
-        <header className="h-12 shrink-0 border-b border-slate-800/60 flex items-center px-6 gap-3" style={{ background: "rgb(10 13 20)" }}>
-          <span className="text-slate-600 text-xs">/</span>
+        <header className="h-12 shrink-0 border-b border-slate-800/60 flex items-center px-6 gap-2" style={{ background: "rgb(10 13 20)" }}>
+          {pageGroup && (
+            <>
+              <span className="text-slate-600 text-xs">{pageGroup}</span>
+              <span className="text-slate-700 text-xs">/</span>
+            </>
+          )}
           <span className="text-slate-300 text-xs font-medium">{pageTitle}</span>
         </header>
 
