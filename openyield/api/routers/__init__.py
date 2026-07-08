@@ -15,6 +15,7 @@ from openyield.api.routers import (
     analysis_router,
     analytics_router,
     ai_router,
+    claude_router,
     images_router,
     spatial_router,
     genealogy_router,

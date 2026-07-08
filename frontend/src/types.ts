@@ -407,6 +407,21 @@ export interface SignatureResult {
   top_match: SignatureMatch | null;
 }
 
+// ── Claude AI ─────────────────────────────────────────────────────────────────
+
+export interface ClaudeDefectAnalysis {
+  defect_id:   number;
+  defect_type: string;
+  analysis:    string;
+  model:       string;
+}
+
+export interface ClaudeYieldReport {
+  lot_id: string;
+  report: string;
+  model:  string;
+}
+
 // ── Defect Images ─────────────────────────────────────────────────────────────
 
 export interface DefectImageMeta {

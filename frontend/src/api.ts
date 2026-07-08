@@ -4,7 +4,7 @@ import type {
   ProductSpec, MonteCarloResult, LearningCurveResult,
   ParetoResult, SpcResult, TrendResult, DefectListResult,
   GenerateResult, LotSummary, CorrelationResult, SignatureResult,
-  PanelGallery,
+  PanelGallery, ClaudeDefectAnalysis, ClaudeYieldReport,
 } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -163,6 +163,13 @@ export const api = {
     gallery: (panelId: string, limit = 50) =>
       get<PanelGallery>(`/images/render/panel/${panelId}?limit=${limit}`),
     renderUrl: (defectId: number) => `${API_BASE}/images/render/${defectId}`,
+  },
+
+  claude: {
+    analyzeDefect: (defectId: number) =>
+      get<ClaudeDefectAnalysis>(`/claude/analyze/${defectId}`),
+    yieldReport: (lotId: string) =>
+      get<ClaudeYieldReport>(`/claude/yield-report/${lotId}`),
   },
 
   simulate: {

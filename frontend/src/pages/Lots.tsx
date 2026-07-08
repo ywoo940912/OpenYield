@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import type { LotSummary } from "../types";
+import type { LotSummary, ClaudeYieldReport } from "../types";
 import DonutChart from "../components/DonutChart";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,8 +113,20 @@ function PanelDrawer({ lot }: { lot: LotSummary }) {
 // ── Lot card ──────────────────────────────────────────────────────────────────
 
 function LotCard({ lot }: { lot: LotSummary }) {
-  const [open, setOpen] = useState(false);
+  const [open,       setOpen]       = useState(false);
+  const [report,     setReport]     = useState<ClaudeYieldReport | null>(null);
+  const [reporting,  setReporting]  = useState(false);
+  const [reportErr,  setReportErr]  = useState<string | null>(null);
   const st = statusStyle(lot.lot_status);
+
+  function runReport() {
+    setReporting(true);
+    setReportErr(null);
+    api.claude.yieldReport(lot.lot_id)
+      .then(setReport)
+      .catch(e => setReportErr(e.message))
+      .finally(() => setReporting(false));
+  }
 
   return (
     <div className={`bg-slate-900 border rounded-xl overflow-hidden transition-colors ${
@@ -180,7 +192,54 @@ function LotCard({ lot }: { lot: LotSummary }) {
         </div>
       </button>
 
-      {open && <PanelDrawer lot={lot} />}
+      {open && (
+        <>
+          <PanelDrawer lot={lot} />
+
+          {/* Claude yield report */}
+          <div className="border-t border-slate-800 px-5 py-4 bg-slate-950/40">
+            {!report && !reporting && (
+              <button
+                onClick={runReport}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 text-xs font-medium transition-colors"
+              >
+                <span>✦</span> Generate AI Yield Report
+              </button>
+            )}
+
+            {reporting && (
+              <div className="flex items-center gap-2 text-xs text-violet-400">
+                <div className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+                Claude is generating the yield report…
+              </div>
+            )}
+
+            {reportErr && (
+              <div className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">
+                {reportErr}
+              </div>
+            )}
+
+            {report && (
+              <div className="bg-violet-500/8 border border-violet-500/25 rounded-xl px-5 py-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs text-violet-400 font-semibold">
+                    <span>✦</span> Claude Yield Report — {lot.lot_id}
+                  </div>
+                  <button
+                    onClick={() => setReport(null)}
+                    className="text-slate-600 hover:text-slate-400 text-xs"
+                  >
+                    dismiss
+                  </button>
+                </div>
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{report.report}</p>
+                <div className="text-xs text-slate-600 pt-1">{report.model}</div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

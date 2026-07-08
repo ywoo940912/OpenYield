@@ -24,7 +24,7 @@ from openyield.api.schemas import HealthResponse
 from openyield.api.routers import (
     panels, defects, yield_router,
     ingest, validation_router,
-    analysis_router, analytics_router, ai_router, images_router,
+    analysis_router, analytics_router, ai_router, claude_router, images_router,
     generate_router,
     spatial_router, genealogy_router, classify_router,
     products_router, simulator_router,
@@ -81,6 +81,7 @@ app.include_router(validation_router.router)
 app.include_router(analysis_router.router)
 app.include_router(analytics_router.router)
 app.include_router(ai_router.router)
+app.include_router(claude_router.router)
 app.include_router(images_router.router)
 app.include_router(generate_router.router)
 app.include_router(spatial_router.router)

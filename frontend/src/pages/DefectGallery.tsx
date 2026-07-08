@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { Panel, DefectImageMeta, PanelGallery } from "../types";
+import type { Panel, DefectImageMeta, PanelGallery, ClaudeDefectAnalysis } from "../types";
 
 const TYPE_COLORS: Record<string, string> = {
   particle:      "bg-sky-500/20 text-sky-400",
@@ -19,13 +19,26 @@ function typeBadge(t: string) {
 // ── Enlarged defect modal ──────────────────────────────────────────────────────
 
 function Modal({ d, onClose }: { d: DefectImageMeta; onClose: () => void }) {
+  const [analysis,   setAnalysis]   = useState<ClaudeDefectAnalysis | null>(null);
+  const [analyzing,  setAnalyzing]  = useState(false);
+  const [analysisErr, setAnalysisErr] = useState<string | null>(null);
+
+  function runAnalysis() {
+    setAnalyzing(true);
+    setAnalysisErr(null);
+    api.claude.analyzeDefect(d.defect_id)
+      .then(setAnalysis)
+      .catch(e => setAnalysisErr(e.message))
+      .finally(() => setAnalyzing(false));
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full mx-4"
+        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full mx-4 max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between mb-4">
@@ -49,20 +62,16 @@ function Modal({ d, onClose }: { d: DefectImageMeta; onClose: () => void }) {
             src={api.images.renderUrl(d.defect_id)}
             alt={d.defect_type}
             className="rounded-lg"
-            style={{
-              imageRendering: "pixelated",
-              width: 256,
-              height: 256,
-            }}
+            style={{ imageRendering: "pixelated", width: 256, height: 256 }}
           />
         </div>
 
         <div className="space-y-2 text-xs">
           {[
-            ["Defect ID",   String(d.defect_id)],
-            ["Type",        d.defect_type],
-            ["Size (mm)",   d.size.toFixed(4)],
-            ["Confidence",  `${(d.confidence_score * 100).toFixed(1)}%`],
+            ["Defect ID",     String(d.defect_id)],
+            ["Type",          d.defect_type],
+            ["Size (mm)",     d.size.toFixed(4)],
+            ["Confidence",    `${(d.confidence_score * 100).toFixed(1)}%`],
             ["Die (row,col)", `(${d.component_row}, ${d.component_col})`],
           ].map(([label, value]) => (
             <div key={label} className="flex justify-between">
@@ -72,7 +81,42 @@ function Modal({ d, onClose }: { d: DefectImageMeta; onClose: () => void }) {
           ))}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-800 text-xs text-slate-600">
+        {/* Claude analysis */}
+        <div className="mt-4 pt-4 border-t border-slate-800">
+          {!analysis && !analyzing && (
+            <button
+              onClick={runAnalysis}
+              className="w-full py-2 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 text-xs font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <span>✦</span> Analyze with Claude
+            </button>
+          )}
+
+          {analyzing && (
+            <div className="flex items-center gap-2 text-xs text-violet-400">
+              <div className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+              Claude is analyzing…
+            </div>
+          )}
+
+          {analysisErr && (
+            <div className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">
+              {analysisErr}
+            </div>
+          )}
+
+          {analysis && (
+            <div className="bg-violet-500/8 border border-violet-500/25 rounded-xl px-4 py-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs text-violet-400 font-semibold">
+                <span>✦</span> Claude Analysis
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">{analysis.analysis}</p>
+              <div className="text-xs text-slate-600 pt-1">{analysis.model}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-600">
           64×64 px grayscale patch · Procedurally generated · Deterministic seed
         </div>
       </div>
