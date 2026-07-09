@@ -15,9 +15,14 @@ const PANEL_GENS: { label: string; w: number; h: number }[] = [
   { label: "Gen 10.5",w: 2940, h: 3370 },
 ];
 
-const DISPLAY_TECHS = [
+const PANEL_TECHNOLOGIES = [
+  // Display
   "TFT-LCD (a-Si)", "TFT-LCD (LTPS)", "TFT-LCD (IGZO)",
   "OLED", "AMOLED", "QLED", "MicroLED",
+  // Advanced packaging
+  "Panel-Level Packaging (PLP)", "Glass Core Interposer",
+  // Other
+  "Photomask (Chrome-on-Glass)", "Thin-Film Solar",
 ];
 
 const WAFER_DIAMETERS = [
@@ -164,7 +169,7 @@ export default function Products() {
               <div>
                 <label className="block text-slate-400 text-xs mb-2">Substrate Type</label>
                 <div className="flex gap-1 bg-slate-800 border border-slate-700 rounded-lg p-1 w-fit">
-                  {([["wafer", "Semiconductor Wafer"], ["glass_panel", "Glass Panel (Display)"]] as const).map(([val, lbl]) => (
+                  {([["wafer", "Semiconductor Wafer"], ["glass_panel", "Glass Panel"]] as const).map(([val, lbl]) => (
                     <button key={val} type="button" onClick={() => set("substrate_type", val)}
                       className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${
                         form.substrate_type === val ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
@@ -233,11 +238,11 @@ export default function Products() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-slate-400 text-xs mb-1">Display Technology</label>
+                    <label className="block text-slate-400 text-xs mb-1">Panel Technology</label>
                     <select name="display_technology" value={form.display_technology} onChange={handleChange}
                       className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-500">
                       <option value="">— select —</option>
-                      {DISPLAY_TECHS.map(t => <option key={t} value={t}>{t}</option>)}
+                      {PANEL_TECHNOLOGIES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <Field label="Cell Width (mm) *" name="die_width_mm" value={form.die_width_mm}
