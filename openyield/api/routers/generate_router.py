@@ -13,16 +13,24 @@ calculation and DBSCAN clustering — all in a single request.
 from __future__ import annotations
 
 import dataclasses
+import io
 import time
 import logging
 from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from openyield.api.dependencies import get_db
+from openyield.db.connection import get_placeholder
 from openyield.ingestion.ingest import upsert_panel, upsert_component, upsert_defect
+from openyield.ingestion.adapters.klarf2_adapter import (
+    encode_klarf2, DEFECT_TYPE_TO_CLASS,
+    Klarf2FileInfo, Klarf2LotInfo, Klarf2SetupInfo,
+    Klarf2Wafer, Klarf2Defect, Klarf2Summary,
+)
 from openyield.analysis.lot_tracker import auto_create_lot
 from openyield.synthetic.generator import (
     generate_panel_id, generate_components,
@@ -267,4 +275,95 @@ def generate_synthetic_panels(
         mean_defect_count=eff_mean,
         panels=summaries,
         elapsed_ms=elapsed_ms,
+    )
+
+
+@router.get("/klarf2/{lot_id}")
+def export_lot_as_klarf2(lot_id: str, conn: Connection = Depends(get_db)):
+    """
+    Export a generated lot as a KLARF 2.0 binary (.klf2) file.
+
+    Each panel in the lot becomes a WAFER_INFO + DEFECT_LIST block pair.
+    Only system_a defects are exported (primary inspection system).
+    The file is valid KLARF 2.0 and can be re-ingested via POST /ingest/klarf2.
+    """
+    ph = get_placeholder(conn)
+
+    panels = conn.execute(
+        f"SELECT panel_id, substrate_type FROM panels WHERE lot_id = {ph} ORDER BY panel_id",
+        (lot_id,)
+    ).fetchall()
+
+    if not panels:
+        raise HTTPException(status_code=404, detail=f"Lot {lot_id!r} not found")
+
+    wafers: list[Klarf2Wafer] = []
+    for slot, panel in enumerate(panels, start=1):
+        rows = conn.execute(
+            f"SELECT defect_type, x, y, size, confidence_score FROM defects "
+            f"WHERE panel_id = {ph} AND source_system = 'system_a' ORDER BY defect_id",
+            (panel["panel_id"],)
+        ).fetchall()
+
+        klarf_defects = [
+            Klarf2Defect(
+                defect_id=i + 1,
+                x_mm=float(d["x"]),
+                y_mm=float(d["y"]),
+                x_size_mm=float(d["size"]),
+                y_size_mm=float(d["size"]),
+                class_number=DEFECT_TYPE_TO_CLASS.get(d["defect_type"], 0),
+                rough_bin=0,
+                fine_bin=0,
+                test_number=1,
+                cluster_number=0,
+                confidence=float(d["confidence_score"]),
+            )
+            for i, d in enumerate(rows)
+        ]
+
+        wafers.append(Klarf2Wafer(
+            wafer_id=panel["panel_id"][:16],
+            slot_number=slot,
+            wafer_type=0,
+            orientation=0,
+            num_defects=len(klarf_defects),
+            defects=klarf_defects,
+        ))
+
+    total_defects = sum(len(w.defects) for w in wafers)
+
+    data = encode_klarf2(
+        file_info=Klarf2FileInfo(
+            station_id="OpenYield",
+            file_timestamp=int(time.time()),
+            inspector_version="1.0.0",
+        ),
+        lot_info=Klarf2LotInfo(
+            lot_id=lot_id[:32],
+            step_id="AOI",
+            device_id="SYNTHETIC",
+            process_step="FINAL_INSPECTION",
+        ),
+        setup_info=Klarf2SetupInfo(
+            recipe_id="OPENYIELD_SYNTHETIC",
+            inspection_mode=0,
+            pixel_size_um=1.0,
+            die_width_mm=1.0,
+            die_height_mm=1.0,
+            num_defect_classes=len(DEFECT_TYPE_TO_CLASS),
+        ),
+        wafers=wafers,
+        summary=Klarf2Summary(
+            total_wafers=len(wafers),
+            total_defects=total_defects,
+            mean_defects_per_wafer=total_defects / len(wafers) if wafers else 0.0,
+        ),
+    )
+
+    filename = f"{lot_id}.klf2"
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

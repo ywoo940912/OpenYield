@@ -204,16 +204,25 @@ function LotCard({ lot }: { lot: LotSummary }) {
         <>
           <PanelDrawer lot={lot} />
 
-          {/* Claude yield report */}
+          {/* Claude yield report + KLARF export */}
           <div className="border-t border-slate-800 px-5 py-4 bg-slate-950/40">
-            {!report && !reporting && (
-              <button
-                onClick={runReport}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 text-xs font-medium transition-colors"
+            <div className="flex items-center gap-3 flex-wrap mb-3">
+              {!report && !reporting && (
+                <button
+                  onClick={runReport}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/40 text-violet-300 text-xs font-medium transition-colors"
+                >
+                  <span>✦</span> Generate AI Yield Report
+                </button>
+              )}
+              <a
+                href={`/generate/klarf2/${lot.lot_id}`}
+                download={`${lot.lot_id}.klf2`}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium transition-colors"
               >
-                <span>✦</span> Generate AI Yield Report
-              </button>
-            )}
+                ↓ Download KLARF 2.0
+              </a>
+            </div>
 
             {reporting && (
               <div className="flex items-center gap-2 text-xs text-violet-400">
@@ -241,6 +250,7 @@ function LotCard({ lot }: { lot: LotSummary }) {
                     dismiss
                   </button>
                 </div>
+
                 <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{report.report}</p>
                 <div className="text-xs text-slate-600 pt-1">{report.model}</div>
               </div>

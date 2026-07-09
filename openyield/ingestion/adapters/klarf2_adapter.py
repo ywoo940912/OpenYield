@@ -563,6 +563,10 @@ _CLASS_TO_TYPE: dict[int, str] = {
     11: "short_circuit",
 }
 
+# Public aliases — used by the KLARF export endpoint
+CLASS_TO_DEFECT_TYPE: dict[int, str] = _CLASS_TO_TYPE
+DEFECT_TYPE_TO_CLASS: dict[str, int] = {v: k for k, v in _CLASS_TO_TYPE.items()}
+
 
 def _defect_type(class_number: int) -> str:
     return _CLASS_TO_TYPE.get(class_number, f"class_{class_number}")
