@@ -121,12 +121,18 @@ export interface ProductSpec {
   die_width_mm: number;
   die_height_mm: number;
   die_area_mm2: number;
-  wafer_diameter_mm: number;
+  // wafer-only (null for glass panels)
+  wafer_diameter_mm: number | null;
+  process_node_nm: number | null;
+  // glass-panel-only (null for wafers)
+  panel_width_mm: number | null;
+  panel_height_mm: number | null;
+  display_technology: string | null;
+  // common
   critical_area_fraction: number;
   target_yield: number;
   alpha: number;
   d0_target: number | null;
-  process_node_nm: number | null;
   notes: string;
   created_at: string;
   updated_at: string;
