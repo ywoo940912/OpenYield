@@ -95,12 +95,20 @@ function PanelDrawer({ lot }: { lot: LotSummary }) {
                 ) : <span className="text-slate-600">—</span>}
               </td>
               <td className="px-5 py-3 text-right">
-                <Link
-                  to={`/yield-map?panel=${p.panel_id}`}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline whitespace-nowrap"
-                >
-                  Yield Map →
-                </Link>
+                <div className="flex items-center justify-end gap-4">
+                  <Link
+                    to={`/defects?panel=${p.panel_id}`}
+                    className="text-xs text-slate-500 hover:text-slate-300 hover:underline whitespace-nowrap"
+                  >
+                    Gallery →
+                  </Link>
+                  <Link
+                    to={`/yield-map?panel=${p.panel_id}`}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline whitespace-nowrap"
+                  >
+                    Yield Map →
+                  </Link>
+                </div>
               </td>
             </tr>
           ))}

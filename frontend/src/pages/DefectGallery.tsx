@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import type { Panel, DefectImageMeta, PanelGallery, ClaudeDefectAnalysis } from "../types";
 
@@ -18,7 +20,7 @@ function typeBadge(t: string) {
 
 // ── Enlarged defect modal ──────────────────────────────────────────────────────
 
-function Modal({ d, onClose }: { d: DefectImageMeta; onClose: () => void }) {
+function Modal({ d, panelId, onClose }: { d: DefectImageMeta; panelId: string; onClose: () => void }) {
   const [analysis,   setAnalysis]   = useState<ClaudeDefectAnalysis | null>(null);
   const [analyzing,  setAnalyzing]  = useState(false);
   const [analysisErr, setAnalysisErr] = useState<string | null>(null);
@@ -116,8 +118,15 @@ function Modal({ d, onClose }: { d: DefectImageMeta; onClose: () => void }) {
           )}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-600">
-          64×64 px grayscale patch · Procedurally generated · Deterministic seed
+        <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+          <span className="text-xs text-slate-600">64×64 px · Deterministic seed</span>
+          <Link
+            to={`/yield-map?panel=${panelId}`}
+            onClick={onClose}
+            className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline"
+          >
+            Yield Map →
+          </Link>
         </div>
       </div>
     </div>
@@ -127,16 +136,23 @@ function Modal({ d, onClose }: { d: DefectImageMeta; onClose: () => void }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function DefectGallery() {
-  const [panels,  setPanels]  = useState<Panel[]>([]);
-  const [panelId, setPanelId] = useState("");
-  const [gallery, setGallery] = useState<PanelGallery | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err,     setErr]     = useState<string | null>(null);
-  const [filter,  setFilter]  = useState<string>("");
+  const [searchParams] = useSearchParams();
+  const [panels,   setPanels]   = useState<Panel[]>([]);
+  const [panelId,  setPanelId]  = useState(searchParams.get("panel") ?? "");
+  const [gallery,  setGallery]  = useState<PanelGallery | null>(null);
+  const [loading,  setLoading]  = useState(false);
+  const [err,      setErr]      = useState<string | null>(null);
+  const [filter,   setFilter]   = useState<string>("");
   const [selected, setSelected] = useState<DefectImageMeta | null>(null);
 
   useEffect(() => {
     api.panels.list().then(r => setPanels(r.results)).catch(() => {});
+  }, []);
+
+  // Auto-load when ?panel= param is present
+  useEffect(() => {
+    const pid = searchParams.get("panel");
+    if (pid) { setPanelId(pid); loadGallery(pid); }
   }, []);
 
   function loadGallery(pid: string) {
@@ -160,7 +176,7 @@ export default function DefectGallery() {
 
   return (
     <div className="space-y-5">
-      {selected && <Modal d={selected} onClose={() => setSelected(null)} />}
+      {selected && <Modal d={selected} panelId={panelId} onClose={() => setSelected(null)} />}
 
       <div className="flex items-center justify-between">
         <div>

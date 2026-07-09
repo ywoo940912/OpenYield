@@ -226,12 +226,20 @@ export default function Dashboard() {
                   <td className="px-5 py-3 text-slate-400 text-xs font-mono">{p.lot_id || "—"}</td>
                   <td className="px-5 py-3 text-slate-400 text-xs">{p.rows}×{p.cols}</td>
                   <td className="px-5 py-3">
-                    <Link
-                      to={`/yield-map?panel=${p.panel_id}`}
-                      className="text-xs text-emerald-400 hover:underline"
-                    >
-                      Yield Map →
-                    </Link>
+                    <div className="flex items-center gap-4">
+                      <Link
+                        to={`/defects?panel=${p.panel_id}`}
+                        className="text-xs text-slate-500 hover:text-slate-300 hover:underline"
+                      >
+                        Gallery →
+                      </Link>
+                      <Link
+                        to={`/yield-map?panel=${p.panel_id}`}
+                        className="text-xs text-emerald-400 hover:underline"
+                      >
+                        Yield Map →
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
