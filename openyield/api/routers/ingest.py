@@ -11,16 +11,18 @@ GET  /ingest/files — list tracked files and their status
 
 from __future__ import annotations
 
+import json
 import tempfile
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form
 
 from openyield.api.dependencies import get_db
 from openyield.api.schemas import IngestResponse
 from openyield.db.connection import get_placeholder
-from openyield.ingestion.ingest import ingest_csv, is_file_processed
+from openyield.ingestion.ingest import ingest_csv, is_file_processed, upsert_defect
+from openyield.ingestion.adapters.flex_csv_adapter import FlexCsvAdapter, ConfigError
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -104,6 +106,110 @@ async def ingest_csv_upload(
     finally:
         if tmp_path and tmp_path.exists():
             tmp_path.unlink()
+
+
+# ---------------------------------------------------------------------------
+# Flex CSV ingest — any column layout via JSON mapping config
+# ---------------------------------------------------------------------------
+
+@router.post("/flex-csv")
+async def ingest_flex_csv(
+    file:   UploadFile = File(...,  description="Defect CSV file in any column layout"),
+    config: str        = Form(...,  description="JSON mapping config (see GET /ingest/flex-csv/schema)"),
+    conn=Depends(get_db),
+):
+    """
+    Ingest a CSV defect file using a declarative JSON column mapping.
+
+    This endpoint accepts inspection exports from **any equipment vendor** —
+    no pre-processing required.  Supply a JSON config that maps your column
+    names, units, and class codes to the OpenYield schema.
+
+    Fetch the example config from GET /ingest/flex-csv/schema to get started.
+
+    The config supports:
+    - Column renaming: `{"column": "X_UM", "scale": 0.001}`
+    - Fixed values:    `{"value": "system_a"}`
+    - Discrete maps:   `{"column": "CLASS", "map": {"1": "particle"}}`
+    - Templates:       `{"template": "{LOT_ID}_{WAFER_ID}"}`
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    try:
+        mapping = json.loads(config)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON config: {exc}")
+
+    try:
+        adapter = FlexCsvAdapter(mapping)
+    except ConfigError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    tmp_path = None
+    try:
+        suffix = Path(file.filename).suffix or ".csv"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = Path(tmp.name)
+
+        try:
+            defects = adapter.parse(tmp_path)
+        except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        inserted = 0
+        with conn:
+            for d in defects:
+                upsert_defect(
+                    conn,
+                    panel_id=d.panel_id,
+                    component_row=d.component_row,
+                    component_col=d.component_col,
+                    source_system=d.source_system,
+                    defect_type=d.defect_type,
+                    x=d.x, y=d.y,
+                    size=d.size,
+                    confidence_score=d.confidence_score,
+                )
+                inserted += 1
+
+        return {
+            "file_name":        file.filename,
+            "records_ingested": inserted,
+            "status":           "ingested",
+            "message":          f"Successfully ingested {inserted} records from {file.filename}",
+        }
+
+    finally:
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink()
+
+
+@router.get("/flex-csv/schema")
+def flex_csv_schema():
+    """
+    Return an example JSON mapping config for FlexCsvAdapter.
+
+    Copy this, rename columns to match your CSV headers, and POST it alongside
+    your CSV to /ingest/flex-csv.  See the field descriptions for all supported
+    spec forms.
+    """
+    return {
+        "example_config": FlexCsvAdapter.example_config(),
+        "supported_defect_types": sorted([
+            "particle", "scratch", "void", "pit", "contamination",
+            "mura", "pinhole", "line_defect", "open_circuit",
+            "short_circuit", "metal_spike", "bridging", "crystal_defect",
+            "unclassified",
+        ]),
+        "spec_forms": {
+            "column":   '{"column": "YOUR_COL", "type": "float|int", "scale": 0.001, "default": 0}',
+            "value":    '{"value": "system_a"}',
+            "map":      '{"column": "CLASS_CODE", "map": {"0": "particle"}, "default": "unclassified"}',
+            "template": '{"template": "{LOT_ID}_{WAFER_ID}"}',
+        },
+    }
 
 
 # ---------------------------------------------------------------------------

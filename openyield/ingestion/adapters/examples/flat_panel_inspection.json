@@ -1,0 +1,30 @@
+{
+  "_comment": "Flat panel (TFT-LCD/OLED) in-house inspection tool — coordinates in mm, named defect classes",
+  "encoding":       "utf-8-sig",
+  "delimiter":      "\t",
+  "skip_rows":      2,
+  "substrate_type": "glass_panel",
+
+  "panel_id":         { "column": "PanelID" },
+  "component_row":    { "column": "Row",     "type": "int" },
+  "component_col":    { "column": "Col",     "type": "int" },
+  "source_system":    { "value":  "system_a" },
+  "defect_type": {
+    "column": "DefectName",
+    "map": {
+      "SPOT":     "particle",
+      "LINE":     "line_defect",
+      "MURA":     "mura",
+      "PINHOLE":  "pinhole",
+      "SCRATCH":  "scratch",
+      "FOREIGN":  "contamination",
+      "SHORT":    "short_circuit",
+      "OPEN":     "open_circuit"
+    },
+    "default": "unclassified"
+  },
+  "x":                { "column": "X_MM" },
+  "y":                { "column": "Y_MM" },
+  "size":             { "column": "Size_MM" },
+  "confidence_score": { "value":  0.80 }
+}

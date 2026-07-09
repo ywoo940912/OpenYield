@@ -1,0 +1,32 @@
+{
+  "_comment": "Generic AOI tool export — coordinates in micrometers, class codes 0-9",
+  "encoding":       "utf-8-sig",
+  "delimiter":      ",",
+  "skip_rows":      0,
+  "substrate_type": "wafer",
+
+  "panel_id":         { "template": "{LOT_ID}_{WAFER_ID}" },
+  "component_row":    { "column": "DIE_ROW",   "type": "int" },
+  "component_col":    { "column": "DIE_COL",   "type": "int" },
+  "source_system":    { "value":  "system_a" },
+  "defect_type": {
+    "column":  "CLASS_CODE",
+    "map": {
+      "0": "particle",
+      "1": "scratch",
+      "2": "pit",
+      "3": "void",
+      "4": "metal_spike",
+      "5": "bridging",
+      "6": "crystal_defect",
+      "7": "line_defect",
+      "8": "open_circuit",
+      "9": "short_circuit"
+    },
+    "default": "unclassified"
+  },
+  "x":                { "column": "X_UM",      "scale": 0.001 },
+  "y":                { "column": "Y_UM",      "scale": 0.001 },
+  "size":             { "column": "DEFECT_SIZE_UM", "scale": 0.001 },
+  "confidence_score": { "column": "CONFIDENCE", "default": 0.75 }
+}
