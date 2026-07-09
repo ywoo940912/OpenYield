@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from openyield.api.dependencies import get_db
 from openyield.api.schemas import HealthResponse
+from openyield.defect_types import DEFECT_TYPES_BY_SUBSTRATE, ALL_DEFECT_TYPES
 from openyield.api.routers import (
     panels, defects, yield_router,
     ingest, validation_router,
@@ -89,6 +90,36 @@ app.include_router(genealogy_router.router)
 app.include_router(classify_router.router)
 app.include_router(products_router.router)
 app.include_router(simulator_router.router)
+
+
+# ---------------------------------------------------------------------------
+# Defect type taxonomy
+# ---------------------------------------------------------------------------
+
+@app.get("/defect-types", tags=["taxonomy"])
+def defect_types(substrate: str | None = None):
+    """
+    Return the defect type vocabulary for the given substrate type.
+
+    Query params:
+      substrate=wafer        → wafer-only defect types
+      substrate=glass_panel  → glass panel defect types (GCS + FPD)
+      (omit)                 → full taxonomy for all substrates
+    """
+    if substrate:
+        types = DEFECT_TYPES_BY_SUBSTRATE.get(substrate)
+        if types is None:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown substrate {substrate!r}. Valid: {list(DEFECT_TYPES_BY_SUBSTRATE)}",
+            )
+        return {"substrate": substrate, "defect_types": types}
+    return {
+        "substrate": "all",
+        "defect_types": ALL_DEFECT_TYPES,
+        "by_substrate": DEFECT_TYPES_BY_SUBSTRATE,
+    }
 
 
 # ---------------------------------------------------------------------------

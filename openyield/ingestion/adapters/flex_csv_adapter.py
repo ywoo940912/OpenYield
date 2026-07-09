@@ -88,6 +88,7 @@ from pathlib import Path
 from typing import Any
 
 from .base import BaseAdapter, NormalizedDefect
+from openyield.defect_types import ALL_DEFECT_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +97,7 @@ REQUIRED_FIELDS = (
     "defect_type", "x", "y", "size", "confidence_score",
 )
 
-KNOWN_DEFECT_TYPES = {
-    "particle", "scratch", "void", "pit", "contamination", "mura",
-    "pinhole", "line_defect", "open_circuit", "short_circuit",
-    "metal_spike", "bridging", "crystal_defect", "unclassified",
-}
+KNOWN_DEFECT_TYPES: set[str] = set(ALL_DEFECT_TYPES) | {"unclassified"}
 
 _TEMPLATE_RE = re.compile(r"\{(\w+)\}")
 

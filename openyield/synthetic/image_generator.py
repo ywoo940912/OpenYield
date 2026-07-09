@@ -438,6 +438,142 @@ def _render_defect(defect_type: str, size_mm: float,
                             radius=pixel_size * 0.25,
                             contrast=50)
 
+    # ── Glass panel defects ───────────────────────────────────────────────────
+
+    elif defect_type == "micro_crack":
+        # Jagged high-contrast line — hairline crack in glass
+        angle = rng.next() * 2.0 * math.pi
+        length = pixel_size * 2.8
+        steps = 12
+        px_cur, py_cur = cx - math.cos(angle) * length / 2, cy - math.sin(angle) * length / 2
+        step_len = length / steps
+        for _ in range(steps):
+            jitter = rng.normal(0.0, pixel_size * 0.08)
+            px_next = px_cur + math.cos(angle) * step_len + math.sin(angle) * jitter
+            py_next = py_cur + math.sin(angle) * step_len - math.cos(angle) * jitter
+            seg_cx = (px_cur + px_next) / 2
+            seg_cy = (py_cur + py_next) / 2
+            _draw_linear_streak(pixels, seg_cx, seg_cy,
+                                length=step_len * 1.2,
+                                angle=math.atan2(py_next - py_cur, px_next - px_cur),
+                                contrast=140 + rng.randint(0, 40))
+            px_cur, py_cur = px_next, py_next
+
+    elif defect_type == "chipping":
+        # Irregular missing-glass polygon at one edge of the patch
+        edge_angle = rng.next() * 2.0 * math.pi
+        edge_cx = cx + math.cos(edge_angle) * pixel_size * 0.8
+        edge_cy = cy + math.sin(edge_angle) * pixel_size * 0.8
+        # Dark irregular blob at edge (lost material = dark on bright bg)
+        n_lobes = 3 + rng.randint(0, 2)
+        for i in range(n_lobes):
+            spread = rng.normal(0.0, pixel_size * 0.35)
+            lobe_x = edge_cx + math.cos(edge_angle + i * 0.7) * spread
+            lobe_y = edge_cy + math.sin(edge_angle + i * 0.7) * spread
+            _draw_hard_circle(pixels, lobe_x, lobe_y,
+                              radius=max(pixel_size * 0.3, 2.0),
+                              contrast=120 + rng.randint(0, 40))
+
+    elif defect_type == "inclusion":
+        # Compact dark mass embedded in glass bulk — foreign particle trapped
+        _draw_hard_circle(pixels, cx, cy,
+                          radius=max(pixel_size * 0.55, 3.0),
+                          contrast=150 + rng.randint(0, 30))
+        # Faint bright halo from refractive index mismatch
+        _draw_ring(pixels, cx, cy,
+                   outer_r=pixel_size * 0.75,
+                   inner_r=pixel_size * 0.55,
+                   contrast=25 + rng.randint(0, 15))
+
+    elif defect_type == "delamination":
+        # Large soft bubble/blister — interlayer separation
+        # Bright convex dome: centre brighter than surroundings
+        for i in range(len(pixels)):
+            x = (i % IMAGE_W) - cx
+            y = (i // IMAGE_W) - cy
+            d2 = x * x + y * y
+            r2 = (pixel_size * 1.1) ** 2
+            if d2 < r2:
+                bright = int(45 * (1.0 - d2 / r2) ** 0.5)
+                pixels[i] = _clip(pixels[i] + bright)
+        # Dark ring at the perimeter — stress concentration
+        _draw_ring(pixels, cx, cy,
+                   outer_r=pixel_size * 1.15,
+                   inner_r=pixel_size * 0.95,
+                   contrast=50 + rng.randint(0, 20))
+
+    elif defect_type == "tgv_open":
+        # TGV that failed to form — shows as bright open circle (no metal fill)
+        _draw_ring(pixels, cx, cy,
+                   outer_r=pixel_size * 0.75,
+                   inner_r=pixel_size * 0.45,
+                   contrast=110 + rng.randint(0, 30))
+        # Bright interior — void / unfilled via
+        _draw_bright_point(pixels, cx, cy,
+                           intensity=90 + rng.randint(0, 30))
+
+    elif defect_type == "tgv_misalign":
+        # Target crosshair at nominal centre + offset filled via at actual position
+        # Crosshair (nominal)
+        for sign in (-1, 1):
+            _draw_linear_streak(pixels, cx, cy,
+                                length=pixel_size * 1.4,
+                                angle=sign * math.pi / 2,
+                                contrast=60 + rng.randint(0, 20))
+        _draw_linear_streak(pixels, cx, cy,
+                            length=pixel_size * 1.4,
+                            angle=0.0,
+                            contrast=60 + rng.randint(0, 20))
+        # Actual via — offset from nominal
+        offset_mag = pixel_size * (0.3 + rng.next() * 0.4)
+        offset_angle = rng.next() * 2.0 * math.pi
+        ax = cx + math.cos(offset_angle) * offset_mag
+        ay = cy + math.sin(offset_angle) * offset_mag
+        _draw_hard_circle(pixels, ax, ay,
+                          radius=max(pixel_size * 0.3, 2.5),
+                          contrast=100 + rng.randint(0, 30))
+
+    elif defect_type == "tgv_partial":
+        # Incomplete via — 2/3 arc ring (missing arc segment where etch stopped)
+        r = pixel_size * 0.65
+        arc_start = rng.next() * 2.0 * math.pi
+        arc_span  = math.pi * 1.35  # ~240° of the full circle
+        n_segs = 16
+        for i in range(n_segs):
+            frac = i / n_segs
+            if frac > (arc_span / (2.0 * math.pi)):
+                continue
+            a = arc_start + frac * 2.0 * math.pi
+            sx = cx + r * math.cos(a)
+            sy = cy + r * math.sin(a)
+            _draw_bright_point(pixels, sx, sy,
+                               intensity=80 + rng.randint(0, 30))
+        # Central dark region — partially etched glass body
+        _draw_hard_circle(pixels, cx, cy,
+                          radius=max(pixel_size * 0.38, 2.0),
+                          contrast=70 + rng.randint(0, 20))
+
+    elif defect_type == "pixel_defect":
+        # Single stuck bright or dark pixel — high local contrast
+        bright = rng.randint(0, 1) == 1
+        # Darken the surrounding area to make the pixel pop
+        for i in range(len(pixels)):
+            x = (i % IMAGE_W) - cx
+            y = (i // IMAGE_W) - cy
+            if x * x + y * y < (pixel_size * 0.8) ** 2:
+                pixels[i] = _clip(pixels[i] - 50)
+        if bright:
+            _draw_bright_point(pixels, cx, cy, intensity=200 + rng.randint(0, 55))
+        else:
+            _draw_hard_circle(pixels, cx, cy,
+                              radius=max(pixel_size * 0.12, 1.5),
+                              contrast=200)
+
+    elif defect_type == "mura":
+        angle = rng.next() * 2.0 * math.pi
+        _draw_soft_gradient(pixels, angle,
+                            amplitude=30 + rng.randint(0, 20))
+
     else:
         _draw_gaussian_blob(pixels, cx, cy,
                             radius=pixel_size * 0.4,

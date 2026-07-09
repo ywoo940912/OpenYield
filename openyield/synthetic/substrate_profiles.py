@@ -30,6 +30,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from openyield.defect_types import WAFER_DEFECT_TYPES, GLASS_PANEL_DEFECT_TYPES
+
 
 # ---------------------------------------------------------------------------
 # Substrate type enum
@@ -121,28 +123,40 @@ class SubstrateProfile:
 
 # ---------------------------------------------------------------------------
 # Glass panel profile
-# Represents large-format AOI (system_a) + confocal review (system_b).
-# Typical Gen-8 / Gen-10 TFT-LCD or OLED backplane inspection.
-# Relevant to defense displays, aerospace HMI, and U.S. display fabs.
+# Covers two product families under a single substrate type:
+#
+#   GCS / PLP  — Glass Core Substrate with Through-Glass Vias (TGV),
+#                e.g. Absolics, AGC, Schott, Corning.  Inspection tooling:
+#                wide-field optical (system_a) + laser confocal (system_b).
+#
+#   FPD        — Flat Panel Display backplane (TFT-LCD, OLED, AMOLED) for
+#                defense, aerospace HMI, and consumer electronics.
+#                Inspection: Gen-8/10 AOI (system_a) + confocal (system_b).
+#
+# Spatial parameters reflect Gen-8 panel scale (2200×2500 mm).
 # ---------------------------------------------------------------------------
 
 _GLASS_PANEL_PROFILE = SubstrateProfile(
     substrate_type=SubstrateType.GLASS_PANEL,
-    product_types=("TFT-LCD-G8", "OLED-G8.5", "TFT-LCD-G10", "AMOLED-G6"),
+    product_types=(
+        # Glass Core Substrate / PLP
+        "GCS-TGV-510x515", "GCS-TGV-300MM", "GCS-PLP-600x600",
+        # Flat Panel Display
+        "TFT-LCD-G8", "OLED-G8.5", "TFT-LCD-G10", "AMOLED-G6",
+    ),
 
-    # Gen-8 panel: ~2200×2500mm. 6×6 grid → ~370mm pitch (typical array cell)
+    # Gen-8 panel: ~2200×2500mm. 6×6 grid → ~370mm pitch (typical array cell).
+    # For GCS 510×515mm panels the pitch is ~85mm — profile shared; seeder
+    # overrides pitch via lot metadata when needed.
     component_pitch_mm=370.0,
     component_half_width_mm=170.0,
     cluster_std_mm=12.0,
     n_clusters=3,
     match_distance_threshold=15.0,
 
-    # AOI systems detect ~2–5 defects per cell on a typical production panel
+    # Full defect vocabulary — all glass panel defect types
     mean_defect_count=3.2,
-    defect_types=(
-        "particle", "scratch", "pinhole",
-        "mura", "line_defect", "open_circuit", "short_circuit",
-    ),
+    defect_types=tuple(GLASS_PANEL_DEFECT_TYPES),
     size_lognormal_mean=-1.2,   # median ~0.30 mm
     size_lognormal_sigma=0.6,
 
@@ -158,11 +172,11 @@ _GLASS_PANEL_PROFILE = SubstrateProfile(
     system_b_confidence_lo=0.80,
     system_b_confidence_hi=0.99,
 
-    # Yield modelling: glass panels have fewer dies — use fixed industry α
+    # Yield modelling: glass panels have fewer unit cells — use fixed α
     clustering_alpha_default=1.0,
     use_empirical_alpha=False,
 
-    # Critical area: TFT arrays cover ~55% of panel area; minimum TFT feature ~100µm
+    # Critical area: TFT arrays / RDL ~55% of panel area; min feature ~100µm
     layout_density=0.55,
     min_feature_mm=0.100,
 )
@@ -188,10 +202,7 @@ _WAFER_PROFILE = SubstrateProfile(
 
     # Advanced node wafers: very low defect density
     mean_defect_count=1.4,
-    defect_types=(
-        "particle", "scratch", "pit",
-        "crystal_defect", "metal_spike", "void", "bridging",
-    ),
+    defect_types=tuple(WAFER_DEFECT_TYPES),
     size_lognormal_mean=-2.5,   # median ~0.082 mm (82 µm)
     size_lognormal_sigma=0.5,
 
