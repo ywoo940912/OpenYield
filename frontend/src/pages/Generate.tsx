@@ -4,7 +4,6 @@ import type { GenerateResult } from "../types";
 
 // ── Presets ───────────────────────────────────────────────────────────────────
 
-const GLASS_PRESETS = ["TFT-LCD-G8", "OLED-G8.5", "TFT-LCD-G10", "AMOLED-G6", "LTPS-G6", "Mini-LED-G8"];
 const WAFER_PRESETS = ["LOGIC-7NM", "LOGIC-5NM", "LOGIC-3NM", "DRAM-1ALPHA", "FLASH-3D-128L", "ANALOG-180NM"];
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -212,7 +211,7 @@ function ResultCard({ run, onRemove }: { run: RunRecord; onRemove: () => void })
 
 export default function Generate() {
   const [substrate, setSubstrate] = useState<"glass_panel" | "wafer">("glass_panel");
-  const [productType, setProductType] = useState("TFT-LCD-G8");
+  const [productType, setProductType] = useState("");
   const [nPanels, setNPanels] = useState(4);
   const [meanDefect, setMeanDefect] = useState(3.5);
   const [runYield, setRunYield] = useState(true);
@@ -225,8 +224,6 @@ export default function Generate() {
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [nextId, setNextId] = useState(1);
-
-  const presets = substrate === "glass_panel" ? GLASS_PRESETS : WAFER_PRESETS;
 
   async function handleGenerate() {
     setLoading(true);
@@ -277,7 +274,7 @@ export default function Generate() {
               {(["glass_panel", "wafer"] as const).map(s => (
                 <button
                   key={s}
-                  onClick={() => { setSubstrate(s); setProductType(s === "glass_panel" ? GLASS_PRESETS[0] : WAFER_PRESETS[0]); }}
+                  onClick={() => { setSubstrate(s); setProductType(""); }}
                   className={`py-2.5 rounded-lg text-sm font-medium border transition-colors ${
                     substrate === s
                       ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
@@ -300,23 +297,30 @@ export default function Generate() {
               value={productType}
               onChange={e => setProductType(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-              placeholder="e.g. TFT-LCD-G8"
+              placeholder={substrate === "glass_panel" ? "Enter your product type" : "e.g. LOGIC-7NM"}
             />
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {presets.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setProductType(p)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    productType === p
-                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
-                      : "border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            {substrate === "wafer" && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {WAFER_PRESETS.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setProductType(p)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      productType === p
+                        ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                        : "border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+            {substrate === "glass_panel" && (
+              <p className="text-xs text-slate-600 mt-1.5">
+                Use your internal product identifier. The generator applies GCS/TGV defect types.
+              </p>
+            )}
           </div>
 
           {/* Panel count */}

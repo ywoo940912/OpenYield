@@ -133,16 +133,16 @@ class SubstrateProfile:
 #                defense, aerospace HMI, and consumer electronics.
 #                Inspection: Gen-8/10 AOI (system_a) + confocal (system_b).
 #
-# Spatial parameters reflect Gen-8 panel scale (2200×2500 mm).
+# Spatial parameters reflect Gen-8 panel scale (2200×2500 mm) for FPD.
+# For GCS (e.g. SEMI M77 510×515 mm), the generator pitch can be overridden
+# via lot metadata — the defect types and system noise models are shared.
 # ---------------------------------------------------------------------------
 
 _GLASS_PANEL_PROFILE = SubstrateProfile(
     substrate_type=SubstrateType.GLASS_PANEL,
     product_types=(
-        # Glass Core Substrate / PLP
-        "GCS-TGV-510x515", "GCS-TGV-300MM", "GCS-PLP-600x600",
-        # Flat Panel Display
-        "TFT-LCD-G8", "OLED-G8.5", "TFT-LCD-G10", "AMOLED-G6",
+        # Generic GCS/PLP labels — users define their own product identifiers
+        "GCS-TGV-TYPE-A", "GCS-TGV-TYPE-B", "GCS-PLP-TYPE-A",
     ),
 
     # Gen-8 panel: ~2200×2500mm. 6×6 grid → ~370mm pitch (typical array cell).

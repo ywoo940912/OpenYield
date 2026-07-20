@@ -10,10 +10,14 @@ fail through fundamentally different physical mechanisms:
 
   - Wafer defects:       process contamination, lithography, etch, CMP, and
                          metallisation artifacts on silicon.
-  - Glass panel defects: glass bulk/surface integrity, through-glass via (TGV)
-                         formation, and display backplane circuit failures.
-                         Covers both glass core substrates (GCS/PLP — e.g. Absolics,
-                         AGC, Schott) and flat panel displays (TFT-LCD, OLED, …).
+  - Glass panel defects: glass bulk/surface integrity and through-glass via (TGV)
+                         formation for glass core substrates (GCS) and panel-level
+                         packaging (PLP). Manufacturers such as AGC, Schott, and
+                         Corning represent the target user class.
+
+Note: display-specific defect types (mura, pixel_defect) are intentionally
+excluded. OpenYield targets GCS/PLP inspection, not flat panel display fabs.
+Companies map their own equipment class codes to these types via FlexCsvAdapter.
 
 Import from here everywhere; do not hardcode defect type strings elsewhere.
 """
@@ -40,10 +44,10 @@ WAFER_DEFECT_TYPES: list[str] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Glass Panel — glass core substrate (GCS/TGV) + flat panel display defects
+# Glass Panel — glass core substrate (GCS/TGV) and panel-level packaging (PLP)
 # ---------------------------------------------------------------------------
 
-# Surface and bulk defects — common to both GCS and FPD
+# Glass bulk and surface defects
 GLASS_SURFACE_DEFECT_TYPES: list[str] = [
     "particle",       # foreign particle on glass surface
     "scratch",        # surface mechanical scratch from handling / polishing
@@ -55,26 +59,23 @@ GLASS_SURFACE_DEFECT_TYPES: list[str] = [
     "delamination",   # interlayer separation in glass stack or coating
 ]
 
-# TGV (Through-Glass Via) defects — GCS / panel-level packaging specific
+# TGV (Through-Glass Via) defects — GCS and PLP specific
 GLASS_TGV_DEFECT_TYPES: list[str] = [
     "tgv_open",       # via failed to form fully — no conductive path
     "tgv_misalign",   # via drilled off nominal target location
     "tgv_partial",    # via incompletely etched — does not reach through
 ]
 
-# Circuit / display defects — TFT backplane (FPD) and redistribution layers (GCS)
-GLASS_CIRCUIT_DEFECT_TYPES: list[str] = [
-    "open_circuit",   # broken metal trace in backplane / RDL
-    "short_circuit",  # unintended metal bridge
-    "line_defect",    # dead or anomalous pixel line (FPD) / RDL line defect
-    "pixel_defect",   # single bright or dark pixel (FPD-specific)
-    "mura",           # luminance non-uniformity / spatial brightness variation (FPD)
+# Redistribution layer (RDL) defects — metallisation on GCS/PLP
+GLASS_RDL_DEFECT_TYPES: list[str] = [
+    "open_circuit",   # broken metal trace in RDL
+    "short_circuit",  # unintended metal bridge in RDL
 ]
 
 GLASS_PANEL_DEFECT_TYPES: list[str] = (
     GLASS_SURFACE_DEFECT_TYPES
     + GLASS_TGV_DEFECT_TYPES
-    + GLASS_CIRCUIT_DEFECT_TYPES
+    + GLASS_RDL_DEFECT_TYPES
 )
 
 # ---------------------------------------------------------------------------
